@@ -14,8 +14,6 @@ pub fn run(subcommand: &CheatsheetSubcommand) {
 }
 
 fn print_domains() {
-    let home = std::env::var("HOME").unwrap_or_default();
-
     stdout::writeln("Launchd Domains");
     stdout::writeln("");
 
@@ -26,12 +24,7 @@ fn print_domains() {
     stdout::writeln("  Files:");
     stdout::writeln("    • /System/Library/LaunchDaemons (Apple system daemons)");
     stdout::writeln("    • /Library/LaunchDaemons (third-party system daemons)");
-    if !home.is_empty() {
-        stdout::writeln(&format!(
-            "    • {}/.config/angel/system (angel-managed system daemons)",
-            home
-        ));
-    }
+    stdout::writeln("    • ~/.config/angel/system (angel-managed system daemons)");
     stdout::writeln("");
 
     // User Domain
@@ -42,10 +35,8 @@ fn print_domains() {
     );
     stdout::writeln("  Files:");
     stdout::writeln("    • /Library/LaunchAgents (system-wide user agents)");
-    if !home.is_empty() {
-        stdout::writeln(&format!("    • {}/Library/LaunchAgents (user-specific agents)", home));
-        stdout::writeln(&format!("    • {}/.config/angel/user (angel-managed user agents)", home));
-    }
+    stdout::writeln("    • ~/Library/LaunchAgents (user-specific agents)");
+    stdout::writeln("    • ~/.config/angel/user (angel-managed user agents)");
     stdout::writeln("");
 
     // GUI Domain
@@ -55,8 +46,6 @@ fn print_domains() {
     stdout::writeln("  Files:");
     stdout::writeln("    • /System/Library/LaunchAgents (Apple GUI agents)");
     stdout::writeln("    • /System/Library/LaunchAngels (Apple GUI agents)");
-    if !home.is_empty() {
-        stdout::writeln(&format!("    • {}/.config/angel/gui (angel-managed GUI agents)", home));
-    }
+    stdout::writeln("    • ~/.config/angel/gui (angel-managed GUI agents)");
     stdout::writeln("");
 }

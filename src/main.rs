@@ -9,6 +9,7 @@ mod output;
 mod parser;
 mod styles;
 mod types;
+mod utils;
 
 use clap::Parser;
 use cli::{Cli, Commands};

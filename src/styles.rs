@@ -42,7 +42,7 @@ pub mod styles {
     }
 
     fn compress_path(path: &Path) -> String {
-        if let Some(home) = dirs::home_dir() {
+        if let Some(home) = crate::utils::get_home() {
             if let Ok(relative) = path.strip_prefix(&home) {
                 return format!("~/{}", relative.display());
             }

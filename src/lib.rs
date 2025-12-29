@@ -9,4 +9,5 @@ pub mod launchctl;
 pub mod output;
 pub mod parser;
 pub mod types;
+pub mod utils;
 

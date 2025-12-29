@@ -1,7 +1,7 @@
 use crate::config::Config;
 use crate::error::{Result, SystemError, UserError};
-use crate::styles::styles;
 use crate::parser::Parser;
+use crate::styles::styles;
 use crate::types::{Daemon, Domain, ForWhom, Plist};
 use regex::Regex;
 use std::collections::HashMap;
@@ -16,7 +16,6 @@ struct PlistDir {
 }
 
 fn get_plist_dirs(config: &Config, user_uid: u32) -> Vec<PlistDir> {
-    let home = std::env::var("HOME").unwrap_or_default();
     let mut dirs = vec![
         PlistDir {
             path: PathBuf::from("/System/Library/LaunchDaemons"),
@@ -50,28 +49,28 @@ fn get_plist_dirs(config: &Config, user_uid: u32) -> Vec<PlistDir> {
         },
     ];
 
-    if !home.is_empty() {
+    if let Some(home) = crate::utils::get_home() {
         dirs.extend(vec![
             PlistDir {
-                path: PathBuf::from(&home).join("Library/LaunchAgents"),
+                path: home.join("Library/LaunchAgents"),
                 domain: Domain::User(user_uid),
                 for_use_by: ForWhom::User,
                 is_system_monitored: true,
             },
             PlistDir {
-                path: PathBuf::from(&home).join(".config/angel/user"),
+                path: home.join(".config/angel/user"),
                 domain: Domain::User(user_uid),
                 for_use_by: ForWhom::Angel,
                 is_system_monitored: false,
             },
             PlistDir {
-                path: PathBuf::from(&home).join(".config/angel/system"),
+                path: home.join(".config/angel/system"),
                 domain: Domain::System,
                 for_use_by: ForWhom::Angel,
                 is_system_monitored: false,
             },
             PlistDir {
-                path: PathBuf::from(&home).join(".config/angel/gui"),
+                path: home.join(".config/angel/gui"),
                 domain: Domain::Gui(user_uid),
                 for_use_by: ForWhom::Angel,
                 is_system_monitored: false,

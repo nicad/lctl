@@ -158,17 +158,15 @@ fn get_domain_selection(angel: &Angel, plist_data: &Plist) -> Result<Domain> {
 fn make_target_path(domain: &Domain, service_name: &str) -> Result<PathBuf> {
     let target_dir = match domain {
         Domain::System => PathBuf::from("/Library/LaunchDaemons"),
-        _ => dirs::home_dir().map(|home| home.join("Library/LaunchAgents")).ok_or_else(|| {
-            UserError::InvalidArgument("Could not determine user home directory".to_string())
-        })?,
+        _ => crate::utils::get_home().map(|home| home.join("Library/LaunchAgents")).ok_or_else(
+            || UserError::InvalidArgument("Could not determine user home directory".to_string()),
+        )?,
     };
     let filename = match service_name.ends_with(".plist") {
         true => service_name.to_string(),
         false => format!("{}.plist", service_name),
     };
-    let target_path = target_dir.join(filename);
-
-    Ok(target_path)
+    Ok(target_dir.join(filename))
 }
 
 fn set_permissions(

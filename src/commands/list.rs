@@ -1,9 +1,9 @@
 use crate::angel::Angel;
 use crate::cli::ListArgs;
-use crate::styles::styles;
 use crate::error::Result;
 use crate::output;
 use crate::output::stdout;
+use crate::styles::styles;
 use crate::types::ForWhom;
 use clap::ValueEnum;
 

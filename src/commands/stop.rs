@@ -10,10 +10,7 @@ pub fn run(angel: &Angel, args: &StopArgs) -> Result<()> {
     stdout::write(&result.output);
     match result.success() {
         true => stdout::success(&format!("stopped {}", daemon.name)),
-        false => stdout::error(&format!(
-            "failed to stop {}: {}",
-            daemon.name, result.stderr
-        )),
+        false => stdout::error(&format!("failed to stop {}: {}", daemon.name, result.stderr)),
     }
     Ok(())
 }

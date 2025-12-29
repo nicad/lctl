@@ -7,6 +7,7 @@ use crossterm::style::Color;
 use std::fs;
 use std::io::Read;
 use std::path::Path;
+use std::process::Command;
 
 pub fn run(angel: &Angel, args: &LogsArgs) -> Result<()> {
     let daemon = angel.daemons.get_match(&args.name, args.exact)?;
@@ -122,8 +123,6 @@ fn extract_process_name(daemon: &crate::types::Daemon) -> String {
 }
 
 fn get_unified_logs(process_name: &str, time_frame: &str) -> Result<String> {
-    use std::process::Command;
-
     let output = Command::new("log")
         .args(&[
             "show",

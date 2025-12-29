@@ -64,36 +64,35 @@ pub struct Colors {
 
 impl Config {
     pub fn load() -> Result<Config> {
-        let home = std::env::var("HOME").unwrap_or_default();
-        
         // Skip config loading if running as root
-        if home.is_empty() || home == "/var/root" {
-            return Ok(Config {
-                directories: None,
-                colors: None,
-            });
-        }
+        let home = match crate::utils::get_home() {
+            Some(h) if h == PathBuf::from("/var/root") => {
+                return Ok(Config { directories: None, colors: None });
+            }
+            Some(h) => h,
+            None => return Ok(Config { directories: None, colors: None }),
+        };
 
         // Try config file locations
         let config_paths = vec![
-            PathBuf::from(&home).join(".angelrc"),
-            dirs::config_dir()
-                .map(|p| p.join("angel").join(".angelrc"))
-                .unwrap_or_default(),
-            PathBuf::from(&home).join(".config").join("angel").join(".angelrc"),
+            home.join(".angelrc"),
+            dirs::config_dir().map(|p| p.join("angel").join(".angelrc")).unwrap_or_default(),
+            home.join(".config").join("angel").join(".angelrc"),
         ];
 
         for path in config_paths {
             if path.exists() {
                 let content = std::fs::read_to_string(&path)?;
-                let mut config: Config = serde_yaml::from_str(&content)
-                    .map_err(|e| SystemError::Config(anyhow::anyhow!("Failed to parse config: {}", e)))?;
+                let mut config: Config = serde_yaml::from_str(&content).map_err(|e| {
+                    SystemError::Config(anyhow::anyhow!("Failed to parse config: {}", e))
+                })?;
 
                 // Expand ~ in directory paths
                 if let Some(ref mut dirs) = config.directories {
+                    let home_str = home.to_string_lossy().to_string();
                     for dir in dirs.iter_mut() {
                         if dir.path.starts_with('~') {
-                            dir.path = dir.path.replacen('~', &home, 1);
+                            dir.path = dir.path.replacen('~', &home_str, 1);
                         }
                     }
                 }
@@ -103,14 +102,10 @@ impl Config {
         }
 
         // Config file is optional
-        Ok(Config {
-            directories: None,
-            colors: None,
-        })
+        Ok(Config { directories: None, colors: None })
     }
 
     pub fn get_directories(&self) -> Vec<DirectoryConfig> {
         self.directories.clone().unwrap_or_default()
     }
 }
-
