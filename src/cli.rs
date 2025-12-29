@@ -93,6 +93,27 @@ pub struct StopArgs {
     pub force: bool,
 }
 
+#[derive(Args)]
+pub struct StatusArgs {
+    /// Service name
+    pub name: String,
+    /// Exact match
+    #[arg(short, long)]
+    pub exact: bool,
+}
+
+#[derive(Args)]
+pub struct LogsArgs {
+    /// Service name
+    pub name: String,
+    /// Exact match
+    #[arg(short, long)]
+    pub exact: bool,
+    /// Time frame for logs (e.g., 5m, 1h, 24h). Default: 5m
+    #[arg(short = 't', long = "time", default_value = "5m")]
+    pub time_frame: String,
+}
+
 #[derive(Subcommand)]
 pub enum Commands {
     /// Install a service
@@ -113,7 +134,9 @@ pub enum Commands {
     /// Bootout a service
     Bootout(NameArgs),
     /// Show service status
-    Status(NameArgs),
+    Status(StatusArgs),
+    /// Show service logs
+    Logs(LogsArgs),
     /// List services
     #[command(alias = "ls")]
     List(ListArgs),
@@ -127,4 +150,9 @@ pub enum Commands {
     Print(NameArgs),
     /// Show version
     Version,
+    /// Show helpful reference information
+    Cheatsheet {
+        #[command(subcommand)]
+        subcommand: crate::commands::cheatsheet::CheatsheetSubcommand,
+    },
 }

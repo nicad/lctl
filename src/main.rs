@@ -3,11 +3,11 @@ mod cli;
 mod commands;
 mod config;
 mod daemon;
-mod styles;
 mod error;
 mod launchctl;
 mod output;
 mod parser;
+mod styles;
 mod types;
 
 use clap::Parser;
@@ -37,6 +37,7 @@ fn main() {
         Commands::Stop(args) => commands::stop::run(&angel, &args),
         Commands::Restart(args) => commands::restart::run(&angel, &args),
         Commands::Status(args) => commands::status::run(&angel, &args),
+        Commands::Logs(args) => commands::logs::run(&angel, &args),
         Commands::List(args) => commands::list::run(&angel, &args),
         Commands::Plist(args) => commands::show::run(&angel, &args),
         Commands::Install(args) => commands::install::run(&angel, &args),
@@ -48,6 +49,10 @@ fn main() {
         Commands::Print(args) => commands::print::run(&angel, &args),
         Commands::Version => {
             commands::version::run();
+            Ok(())
+        }
+        Commands::Cheatsheet { subcommand } => {
+            commands::cheatsheet::run(&subcommand);
             Ok(())
         }
     };

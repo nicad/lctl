@@ -1,12 +1,12 @@
 use crate::angel::Angel;
-use crate::cli::NameArgs;
+use crate::cli::StatusArgs;
 use crate::error::Result;
 use crate::launchctl;
 use crate::output::{is_verbose, stdout};
 use crate::styles::styles;
 use crossterm::style::Color;
 
-pub fn run(angel: &Angel, args: &NameArgs) -> Result<()> {
+pub fn run(angel: &Angel, args: &StatusArgs) -> Result<()> {
     let daemon = angel.daemons.get_match(&args.name, args.exact)?;
     let result = launchctl::print(daemon)?;
 

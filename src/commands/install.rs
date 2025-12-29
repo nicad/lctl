@@ -6,10 +6,8 @@ use crate::output::stdout;
 use crate::types::{Daemon, Domain, ForWhom, Plist};
 use clap::ValueEnum;
 use nix::fcntl::{AT_FDCWD, AtFlags};
-use nix::sys::stat::Mode;
+use nix::sys::stat::{FchmodatFlags, Mode, fchmodat};
 use nix::unistd::{Gid, Uid, fchownat};
-use std::fs;
-use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 
 #[derive(Clone, ValueEnum, PartialEq)]
@@ -186,22 +184,15 @@ fn set_permissions(
 }
 
 fn set_system_permissions(path: &Path) -> Result<()> {
-    stdout::writeln(&format!("Setting system permissions for {}", path.display()));
-
     // sudo chown root:wheel
     let uid = Uid::from(0); // root = 0
     let gid = Gid::from_raw(0); // wheel = 0
-    fchownat(AT_FDCWD, path, Some(uid), Some(gid), AtFlags::AT_SYMLINK_NOFOLLOW)?;
+    let flags = AtFlags::AT_SYMLINK_NOFOLLOW; // set on symlink not target
+    fchownat(AT_FDCWD, path, Some(uid), Some(gid), flags)?;
 
     // sudo chmod 644
-    let owner_read_write = Mode::S_IRUSR | Mode::S_IWUSR; // 6
-    let group_read = Mode::S_IRGRP; // 4
-    let other_read = Mode::S_IROTH; // 4
-    let mode = owner_read_write | group_read | other_read;
-
-    // set permissions on symlink not target
-    let mut perms = fs::symlink_metadata(path)?.permissions();
-    perms.set_mode(mode.bits() as u32);
-    fs::set_permissions(path, perms)?;
+    let mode = Mode::S_IRUSR | Mode::S_IWUSR | Mode::S_IRGRP | Mode::S_IROTH; // 644
+    let flags = FchmodatFlags::NoFollowSymlink; // set on symlink not target
+    fchmodat(AT_FDCWD, path, mode, flags)?;
     Ok(())
 }

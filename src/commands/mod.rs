@@ -1,9 +1,11 @@
 pub mod bootout;
 pub mod bootstrap;
+pub mod cheatsheet;
 pub mod disable;
 pub mod enable;
 pub mod install;
 pub mod list;
+pub mod logs;
 pub mod print;
 pub mod restart;
 pub mod show;
