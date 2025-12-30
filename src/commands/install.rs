@@ -33,10 +33,8 @@ pub fn run(angel: &Angel, args: &InstallArgs) -> Result<()> {
 
     // copy/symlink/move
     let target_path = make_target_path(&selected_domain, &service_name)?;
-    install_file(&args.strategy, &source_path, &target_path)?;
 
-    // set permissions for system domains
-    set_permissions(&selected_domain, &args.strategy, &source_path, &target_path)?;
+    install_file(&args.strategy, &source_path, &target_path, &selected_domain)?;
 
     // kill running service if it is running
     kill_running_service(angel, &service_name)?;
@@ -91,13 +89,28 @@ fn confirm_kill_running_service(daemon: &Daemon) -> Result<()> {
         })
 }
 
-fn install_file(strategy: &InstallStrategy, source_path: &Path, target_path: &Path) -> Result<()> {
+fn install_file(
+    strategy: &InstallStrategy,
+    source_path: &Path,
+    target_path: &Path,
+    domain: &Domain,
+) -> Result<()> {
     confirm_overwrite(target_path)?;
+
+    if *strategy != InstallStrategy::Copy && *domain == Domain::System {
+        set_system_permissions(source_path)?;
+    }
+
     match strategy {
         InstallStrategy::Symlink => std::os::unix::fs::symlink(source_path, target_path)?,
         InstallStrategy::Move => std::fs::rename(source_path, target_path)?,
         InstallStrategy::Copy => std::fs::copy(source_path, target_path).map(|_| ())?,
     }
+
+    if *strategy != InstallStrategy::Move && *domain == Domain::System {
+        set_system_permissions(target_path)?;
+    }
+
     Ok(())
 }
 
@@ -169,28 +182,14 @@ fn make_target_path(domain: &Domain, service_name: &str) -> Result<PathBuf> {
     Ok(target_dir.join(filename))
 }
 
-fn set_permissions(
-    selected_domain: &Domain,
-    strategy: &InstallStrategy,
-    _source_path: &PathBuf,
-    target_path: &PathBuf,
-) -> Result<()> {
-    if *selected_domain == Domain::System && *strategy == InstallStrategy::Symlink {
-        set_system_permissions(target_path)?;
-    }
-    Ok(())
-}
-
 fn set_system_permissions(path: &Path) -> Result<()> {
     // sudo chown root:wheel
     let uid = Uid::from(0); // root = 0
     let gid = Gid::from_raw(0); // wheel = 0
-    let flags = AtFlags::AT_SYMLINK_NOFOLLOW; // set on symlink not target
-    fchownat(AT_FDCWD, path, Some(uid), Some(gid), flags)?;
+    fchownat(AT_FDCWD, path, Some(uid), Some(gid), AtFlags::AT_SYMLINK_NOFOLLOW)?;
 
     // sudo chmod 644
     let mode = Mode::S_IRUSR | Mode::S_IWUSR | Mode::S_IRGRP | Mode::S_IROTH; // 644
-    let flags = FchmodatFlags::NoFollowSymlink; // set on symlink not target
-    fchmodat(AT_FDCWD, path, mode, flags)?;
+    fchmodat(AT_FDCWD, path, mode, FchmodatFlags::FollowSymlink)?;
     Ok(())
 }
