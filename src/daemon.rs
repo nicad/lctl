@@ -1,5 +1,6 @@
 use crate::config::Config;
 use crate::error::{Result, SystemError, UserError};
+use crate::output::stderr;
 use crate::parser::Parser;
 use crate::styles::styles;
 use crate::types::{Daemon, Domain, ForWhom, Plist};
@@ -150,8 +151,12 @@ impl DaemonRegistry {
         let handles: Vec<_> = domains
             .into_iter()
             .map(|domain| {
-                thread::spawn(move || {
-                    Parser::parse_print_domain(&domain).ok().map(|services| (domain, services))
+                thread::spawn(move || match Parser::parse_print_domain(&domain) {
+                    Ok(services) => Some((domain, services)),
+                    Err(e) => {
+                        stderr::error(&format!("Failed to parse domain {}: {}", domain, e));
+                        None
+                    }
                 })
             })
             .collect();

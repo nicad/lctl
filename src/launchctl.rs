@@ -9,6 +9,7 @@ use std::sync::OnceLock;
 #[derive(Debug)]
 pub struct LaunchctlResult {
     pub output: String,
+    output_bytes: Vec<u8>,
     pub exit_code: Option<i32>,
     pub stderr: String,
 }
@@ -16,6 +17,32 @@ pub struct LaunchctlResult {
 impl LaunchctlResult {
     pub fn success(&self) -> bool {
         self.exit_code == Some(0)
+    }
+
+    pub fn output_bytes(&self) -> &[u8] {
+        &self.output_bytes
+    }
+
+    /// Validates the result and returns the output string if successful.
+    /// Returns an error if the command failed or if the output indicates a bad request.
+    pub fn validated_output(&self, service_name: &str) -> crate::error::Result<&str> {
+        if !self.success() {
+            return Err(crate::error::SystemError::Launchctl(format!(
+                "launchctl print failed for service: {}",
+                service_name
+            ))
+            .into());
+        }
+
+        if self.output.starts_with("Bad request.") {
+            return Err(crate::error::SystemError::Launchctl(format!(
+                "Service not found: {}",
+                service_name
+            ))
+            .into());
+        }
+
+        Ok(&self.output)
     }
 }
 
@@ -119,7 +146,12 @@ fn launchctl_exec(mut args: Vec<&str>) -> Result<LaunchctlResult> {
     let stdout_str = String::from_utf8_lossy(&output.stdout).to_string();
     let stderr_str = String::from_utf8_lossy(&output.stderr).to_string();
 
-    Ok(LaunchctlResult { output: stdout_str, exit_code, stderr: stderr_str })
+    Ok(LaunchctlResult {
+        output: stdout_str,
+        output_bytes: output.stdout,
+        exit_code,
+        stderr: stderr_str,
+    })
 }
 
 fn service_target(daemon: &Daemon) -> String {

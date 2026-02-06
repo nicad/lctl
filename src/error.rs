@@ -1,3 +1,4 @@
+use crate::output::stderr;
 use thiserror::Error;
 
 /// User-facing errors - validation, input errors, user mistakes
@@ -69,6 +70,23 @@ impl From<nix::Error> for AngelError {
 impl From<dialoguer::Error> for AngelError {
     fn from(err: dialoguer::Error) -> Self {
         AngelError::System(SystemError::Dialoguer(err))
+    }
+}
+
+// Enable `?` operator for nom parsing errors
+impl From<nom::Err<nom::error::Error<&str>>> for SystemError {
+    fn from(e: nom::Err<nom::error::Error<&str>>) -> Self {
+        let error_msg = format!("Parse error: {:?}", e);
+        stderr::error(&error_msg);
+        SystemError::Launchctl(error_msg)
+    }
+}
+
+impl From<nom::Err<nom::error::Error<&[u8]>>> for SystemError {
+    fn from(e: nom::Err<nom::error::Error<&[u8]>>) -> Self {
+        let error_msg = format!("Parse error: {:?}", e);
+        stderr::error(&error_msg);
+        SystemError::Launchctl(error_msg)
     }
 }
 

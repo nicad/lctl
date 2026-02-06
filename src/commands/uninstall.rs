@@ -26,17 +26,23 @@ pub fn run(angel: &Angel, args: &NameArgs) -> Result<()> {
 }
 
 fn get_source_path(daemon: &Daemon) -> Result<PathBuf> {
-    // First try to use the source_path from the daemon object (from filesystem scan)
     if let Some(path) = &daemon.source_path {
         return Ok(path.clone());
     }
 
-    // Fall back to parsing launchctl print output
-    Parser::parse_print_service(daemon)?.and_then(|(_, _, _, path)| path).ok_or_else(|| {
-        crate::error::AngelError::from(crate::error::UserError::InvalidArgument(
-            "Service does not have an installed plist file".to_string(),
-        ))
-    })
+    let result = launchctl::print(daemon)?;
+    let parsed = Parser::parse_print_service(&result, daemon)?;
+    parsed
+        .get("path")
+        .and_then(|v| match v {
+            crate::parser::ServiceItem::Str(s) => Some(PathBuf::from(*s)),
+            _ => None,
+        })
+        .ok_or_else(|| {
+            crate::error::AngelError::from(crate::error::UserError::InvalidArgument(
+                "Service does not have an installed plist file".to_string(),
+            ))
+        })
 }
 
 fn confirm_uninstall(daemon: &Daemon, source_path: &PathBuf) -> Result<bool> {

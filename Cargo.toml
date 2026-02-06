@@ -1,24 +1,28 @@
 [package]
-    name    = "angel"
-    version = "0.1.0"
-    edition = "2024"
+    name        = "angel"
+    version     = "0.1.0"
+    edition     = "2024"
+    default-run = "angel"
 
 [dependencies]
-    clap         = { version = "*", features = ["derive"] }
-    serde        = { version = "*", features = ["derive"] }
-    serde_yaml   = "*"
-    plist        = "*"
-    anyhow       = "*"
-    thiserror    = "*"
-    dirs         = "*"
-    regex        = "*"
-    glob         = "*"
-    libc         = "*"
-    nix          = { version = "*", features = ["fs", "user"] }
-    crossterm = "*"
-    comfy-table  = "*"
-    dialoguer    = "*"
-    strum        = { version = "*", features = ["derive"] }
+    clap        = { version = "*", features = ["derive"] }
+    serde       = { version = "*", features = ["derive"] }
+    serde_yaml  = "*"
+    plist       = "*"
+    anyhow      = "*"
+    thiserror   = "*"
+    dirs        = "*"
+    regex       = "*"
+    glob        = "*"
+    libc        = "*"
+    nix         = { version = "*", features = ["fs", "user"] }
+    crossterm   = "*"
+    comfy-table = "*"
+    dialoguer   = "*"
+    strum       = { version = "*", features = ["derive"] }
+    nom         = "8.0.0"
+    pest        = "2"
+    pest_derive = "2"
 
 [dev-dependencies]
     criterion = "*"

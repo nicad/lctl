@@ -100,6 +100,9 @@ pub struct StatusArgs {
     /// Exact match
     #[arg(short, long)]
     pub exact: bool,
+    /// Debug output (show raw launchctl output and parsed data)
+    #[arg(short = 'd', long)]
+    pub debug: bool,
 }
 
 #[derive(Args)]
