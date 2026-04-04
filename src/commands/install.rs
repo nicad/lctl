@@ -1,9 +1,11 @@
 use crate::angel::Angel;
 use crate::cli::InstallArgs;
-use crate::error::{AngelError, Result, UserError};
+use crate::error::{AngelError, Result};
 use crate::launchctl;
-use crate::output::stdout;
+use crate::output::{is_verbose, stdout};
+use crate::styles::styles;
 use crate::types::{Daemon, Domain, ForWhom, Plist};
+use crate::utils;
 use clap::ValueEnum;
 use nix::fcntl::{AT_FDCWD, AtFlags};
 use nix::sys::stat::{FchmodatFlags, Mode, fchmodat};
@@ -18,22 +20,27 @@ pub enum InstallStrategy {
 }
 
 pub fn run(angel: &Angel, args: &InstallArgs) -> Result<()> {
-    let source_path = PathBuf::from(args.path.as_str());
-    stdout::writeln(&format!("source_path: {}", source_path.display()));
+    let expanded = utils::expand_path(args.path.as_str());
+    let (source_path, preselected_domain) =
+        resolve_source_path(angel, &expanded, args.path.as_str())?;
     let bytes = std::fs::read(&source_path)?;
 
     let plist_data = plist::from_bytes::<Plist>(&bytes)?;
     let service_name = plist_data
         .label
         .clone()
-        .ok_or_else(|| UserError::InvalidArgument("No label found in plist".to_string()))?;
+        .ok_or_else(|| AngelError::InvalidArgument("No label found in plist".to_string()))?;
 
-    // ask user which domain
-    let selected_domain = get_domain_selection(angel, &plist_data)?;
+    stdout::hint(&format!(
+        "Installing {} from {}",
+        service_name,
+        styles::display_source_path(&source_path, is_verbose())
+    ));
+
+    let selected_domain = get_domain_selection(angel, &plist_data, preselected_domain)?;
 
     // copy/symlink/move
     let target_path = make_target_path(&selected_domain, &service_name)?;
-
     install_file(&args.strategy, &source_path, &target_path, &selected_domain)?;
 
     // kill running service if it is running
@@ -48,11 +55,63 @@ pub fn run(angel: &Angel, args: &InstallArgs) -> Result<()> {
     );
 
     let result = launchctl::bootstrap(&daemon)?;
-    match result.success() {
-        true => stdout::success(&format!("installed {}", daemon.name)),
-        false => stdout::error(&format!("failed to install {}: {}", daemon.name, result.stderr)),
+    if result.success() {
+        stdout::success(&format!("installed {}", daemon.name));
+        Ok(())
+    } else {
+        Err(AngelError::Launchctl(format!("failed to install {}: {}", daemon.name, result.stderr)))
     }
-    Ok(())
+}
+
+/// Local plist path: existing file or symlink (including dangling). Otherwise try fuzzy daemon name match.
+/// Symlinks are followed; the path is the canonical target. `preselected_domain` is set when that path
+/// lies under `~/.config/angel/{user,system,gui}` so the install domain prompt can be skipped.
+fn resolve_source_path(
+    angel: &Angel,
+    expanded: &Path,
+    query: &str,
+) -> Result<(PathBuf, Option<Domain>)> {
+    let is_local_plist = expanded.is_file()
+        || std::fs::symlink_metadata(expanded).map(|m| m.file_type().is_symlink()).unwrap_or(false);
+
+    let path = if is_local_plist {
+        expanded.to_path_buf()
+    } else {
+        let daemon = angel.daemons.get_match(query, false)?;
+        daemon.source_path.clone().ok_or_else(|| {
+            AngelError::InvalidArgument(format!(
+                "Daemon `{}` has no plist path on disk",
+                daemon.name
+            ))
+        })?
+    };
+
+    let resolved = std::fs::canonicalize(&path).map_err(|e| {
+        AngelError::InvalidArgument(format!(
+            "Could not resolve source path `{}`: {}",
+            path.display(),
+            e
+        ))
+    })?;
+    let preselected_domain = infer_domain_from_angel_path(&resolved, angel.uid.as_raw());
+    Ok((resolved, preselected_domain))
+}
+
+fn infer_domain_from_angel_path(resolved: &Path, uid: u32) -> Option<Domain> {
+    let home = utils::home();
+    let pairs: [(&str, Domain); 3] =
+        [("user", Domain::User(uid)), ("system", Domain::System), ("gui", Domain::Gui(uid))];
+    for (sub, domain) in pairs {
+        let base = home.join(".config/angel").join(sub);
+        if let Ok(base_canon) = std::fs::canonicalize(&base) {
+            if resolved.starts_with(&base_canon) {
+                return Some(domain);
+            }
+        } else if resolved.starts_with(&base) {
+            return Some(domain);
+        }
+    }
+    None
 }
 
 fn kill_running_service(angel: &Angel, service_name: &str) -> Result<()> {
@@ -61,7 +120,7 @@ fn kill_running_service(angel: &Angel, service_name: &str) -> Result<()> {
             Some(_) => daemon,
             None => return Ok(()), // not running. proceed.
         },
-        Err(AngelError::User(UserError::DaemonNotFound(_))) => return Ok(()), // not found. proceed.
+        Err(AngelError::DaemonNotFound(_)) => return Ok(()), // not found. proceed.
         Err(e) => return Err(e.into()),
     };
     confirm_kill_running_service(&daemon)?;
@@ -81,11 +140,10 @@ fn confirm_kill_running_service(daemon: &Daemon) -> Result<()> {
         .unwrap_or(false)
         .then_some(())
         .ok_or_else(|| {
-            UserError::InvalidArgument(format!(
+            AngelError::InvalidArgument(format!(
                 "A service with the name {} is already running. Bootstrap will fail.",
                 daemon.name
             ))
-            .into()
         })
 }
 
@@ -115,51 +173,59 @@ fn install_file(
 }
 
 fn confirm_overwrite(target_path: &Path) -> Result<()> {
-    if !target_path.exists() {
+    // Use symlink_metadata, not exists(): exists() is false for dangling symlinks,
+    // but symlink() still fails with EEXIST if that path is occupied.
+    if target_path.symlink_metadata().is_err() {
         return Ok(());
     }
     let choice = dialoguer::Confirm::new()
-        .with_prompt(format!("A file already exists at {}. Overwrite it?", target_path.display()))
+        .with_prompt(format!("A file already exists at {}.\nOverwrite it?", target_path.display()))
         .default(true)
         .interact()
         .unwrap_or(false);
 
     if !choice {
-        return Err(UserError::InvalidArgument(format!(
+        return Err(AngelError::InvalidArgument(format!(
             "A file already exists at {}",
-            target_path.display()
-        ))
-        .into());
+            styles::display_source_path(target_path, is_verbose())
+        )));
     }
     std::fs::remove_file(target_path)?;
     Ok(())
 }
 
-fn get_domain_selection(angel: &Angel, plist_data: &Plist) -> Result<Domain> {
+fn get_domain_selection(
+    angel: &Angel,
+    plist_data: &Plist,
+    preselected: Option<Domain>,
+) -> Result<Domain> {
     let domains =
         [Domain::Gui(angel.uid.as_raw()), Domain::System, Domain::User(angel.uid.as_raw())];
-    let domain_selection_index = dialoguer::Select::new()
-        .with_prompt("In which domain should the service be installed?")
-        .items(&domains)
-        .default(0)
-        .interact()?;
-
-    let selected_domain = domains[domain_selection_index].clone();
+    let selected_domain = match preselected {
+        Some(d) => d,
+        None => {
+            let domain_selection_index = dialoguer::Select::new()
+                .with_prompt("In which domain should the service be installed?")
+                .items(&domains)
+                .default(0)
+                .interact()?;
+            domains[domain_selection_index].clone()
+        }
+    };
     let plist_domain = Domain::from_plist(plist_data, angel.uid.as_raw(), selected_domain.clone());
     match plist_domain == selected_domain {
         false => {
-            return Err(UserError::InvalidArgument(format!(
+            return Err(AngelError::InvalidArgument(format!(
                 "The domain written in the plist is `{}` does not match the selected domain `{}`.",
                 plist_domain, selected_domain
-            ))
-            .into());
+            )));
         }
         true => {}
     }
 
     match selected_domain {
         Domain::System => match angel.is_root() {
-            false => return Err(UserError::RequiresRoot.into()),
+            false => return Err(AngelError::RequiresRoot.into()),
             true => {}
         },
         _ => {}
@@ -171,9 +237,7 @@ fn get_domain_selection(angel: &Angel, plist_data: &Plist) -> Result<Domain> {
 fn make_target_path(domain: &Domain, service_name: &str) -> Result<PathBuf> {
     let target_dir = match domain {
         Domain::System => PathBuf::from("/Library/LaunchDaemons"),
-        _ => crate::utils::get_home().map(|home| home.join("Library/LaunchAgents")).ok_or_else(
-            || UserError::InvalidArgument("Could not determine user home directory".to_string()),
-        )?,
+        _ => crate::utils::home().join("Library/LaunchAgents"),
     };
     let filename = match service_name.ends_with(".plist") {
         true => service_name.to_string(),

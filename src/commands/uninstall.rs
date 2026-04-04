@@ -1,9 +1,9 @@
 use crate::angel::Angel;
 use crate::cli::NameArgs;
-use crate::error::Result;
+use crate::error::{AngelError, Result};
 use crate::launchctl;
 use crate::output::{is_verbose, stderr, stdout};
-use crate::parser::Parser;
+use crate::parser::{Parser, ServiceItem};
 use crate::types::Daemon;
 use std::path::PathBuf;
 
@@ -32,17 +32,12 @@ fn get_source_path(daemon: &Daemon) -> Result<PathBuf> {
 
     let result = launchctl::print(daemon)?;
     let parsed = Parser::parse_print_service(&result, daemon)?;
-    parsed
-        .get("path")
-        .and_then(|v| match v {
-            crate::parser::ServiceItem::Str(s) => Some(PathBuf::from(*s)),
-            _ => None,
-        })
-        .ok_or_else(|| {
-            crate::error::AngelError::from(crate::error::UserError::InvalidArgument(
-                "Service does not have an installed plist file".to_string(),
-            ))
-        })
+    match parsed.get("path") {
+        Some(ServiceItem::Str(s)) => Ok(PathBuf::from(*s)),
+        _ => Err(AngelError::InvalidArgument(
+            "Service does not have an installed plist file".to_string(),
+        )),
+    }
 }
 
 fn confirm_uninstall(daemon: &Daemon, source_path: &PathBuf) -> Result<bool> {

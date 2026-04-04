@@ -7,6 +7,7 @@ pub mod install;
 pub mod list;
 pub mod logs;
 pub mod print;
+pub mod reboot;
 pub mod restart;
 pub mod show;
 pub mod start;

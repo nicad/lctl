@@ -42,27 +42,30 @@ pub mod styles {
     }
 
     fn compress_path(path: &Path) -> String {
-        if let Some(home) = crate::utils::get_home() {
-            if let Ok(relative) = path.strip_prefix(&home) {
-                return format!("~/{}", relative.display());
-            }
+        if let Ok(relative) = path.strip_prefix(crate::utils::home()) {
+            return format!("~/{}", relative.display());
         }
         path.display().to_string()
     }
 
+    /// Format a filesystem path like the list command: `~/…`, and with `long`, symlink → target.
+    pub fn display_source_path(path: &Path, long: bool) -> String {
+        match path.is_symlink() {
+            true => match long {
+                true => format!(
+                    "  {} → {}",
+                    compress_path(path),
+                    compress_path(&path.read_link().unwrap_or(PathBuf::from("")))
+                ),
+                false => format!("  {}", compress_path(path)),
+            },
+            false => compress_path(path),
+        }
+    }
+
     pub fn display_path(daemon: &Daemon, long: bool) -> String {
         match &daemon.source_path {
-            Some(path) => match path.is_symlink() {
-                true => match long {
-                    true => format!(
-                        "  {} → {}",
-                        compress_path(path),
-                        compress_path(&path.read_link().unwrap_or(PathBuf::from("")))
-                    ),
-                    false => format!("  {}", compress_path(path)),
-                },
-                false => compress_path(path),
-            },
+            Some(path) => display_source_path(path, long),
             None => "-".to_string(),
         }
     }

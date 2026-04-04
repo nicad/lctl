@@ -1,7 +1,6 @@
-use crate::error::{Result, SystemError};
+use crate::error::{AngelError, Result};
 use crate::types::Domain;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Config {
@@ -65,13 +64,10 @@ pub struct Colors {
 impl Config {
     pub fn load() -> Result<Config> {
         // Skip config loading if running as root
-        let home = match crate::utils::get_home() {
-            Some(h) if h == PathBuf::from("/var/root") => {
-                return Ok(Config { directories: None, colors: None });
-            }
-            Some(h) => h,
-            None => return Ok(Config { directories: None, colors: None }),
-        };
+        let home = crate::utils::home();
+        if home.as_path() == std::path::Path::new("/var/root") {
+            return Ok(Config { directories: None, colors: None });
+        }
 
         // Try config file locations
         let config_paths = vec![
@@ -83,9 +79,8 @@ impl Config {
         for path in config_paths {
             if path.exists() {
                 let content = std::fs::read_to_string(&path)?;
-                let mut config: Config = serde_yaml::from_str(&content).map_err(|e| {
-                    SystemError::Config(anyhow::anyhow!("Failed to parse config: {}", e))
-                })?;
+                let mut config: Config = serde_yaml::from_str(&content)
+                    .map_err(|e| AngelError::Config(format!("Failed to parse config: {}", e)))?;
 
                 // Expand ~ in directory paths
                 if let Some(ref mut dirs) = config.directories {

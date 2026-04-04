@@ -9,7 +9,6 @@
     serde       = { version = "*", features = ["derive"] }
     serde_yaml  = "*"
     plist       = "*"
-    anyhow      = "*"
     thiserror   = "*"
     dirs        = "*"
     regex       = "*"

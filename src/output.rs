@@ -64,11 +64,6 @@ pub mod stdout {
     }
 
     #[inline(always)]
-    pub fn error(msg: &str) {
-        writelogln(prefix(Color::Red, "✘"), msg);
-    }
-
-    #[inline(always)]
     pub fn hint(msg: &str) {
         writelogln(prefix(Color::Yellow, "→"), msg);
     }
@@ -82,7 +77,7 @@ pub mod stderr {
 
     #[inline(always)]
     pub fn writelogln(prefix: impl std::fmt::Display, msg: impl std::fmt::Display) {
-        write_to_stream!(io::stderr, format!("{:<7}{}", prefix, msg), true);
+        write_to_stream!(io::stderr, format!("{:<7} {}", prefix, msg), true);
     }
 
     #[inline(always)]

@@ -1,5 +1,5 @@
 use crate::config::Config;
-use crate::error::{Result, SystemError, UserError};
+use crate::error::{AngelError, Result};
 use crate::output::stderr;
 use crate::parser::Parser;
 use crate::styles::styles;
@@ -50,34 +50,33 @@ fn get_plist_dirs(config: &Config, user_uid: u32) -> Vec<PlistDir> {
         },
     ];
 
-    if let Some(home) = crate::utils::get_home() {
-        dirs.extend(vec![
-            PlistDir {
-                path: home.join("Library/LaunchAgents"),
-                domain: Domain::User(user_uid),
-                for_use_by: ForWhom::User,
-                is_system_monitored: true,
-            },
-            PlistDir {
-                path: home.join(".config/angel/user"),
-                domain: Domain::User(user_uid),
-                for_use_by: ForWhom::Angel,
-                is_system_monitored: false,
-            },
-            PlistDir {
-                path: home.join(".config/angel/system"),
-                domain: Domain::System,
-                for_use_by: ForWhom::Angel,
-                is_system_monitored: false,
-            },
-            PlistDir {
-                path: home.join(".config/angel/gui"),
-                domain: Domain::Gui(user_uid),
-                for_use_by: ForWhom::Angel,
-                is_system_monitored: false,
-            },
-        ]);
-    }
+    let home = crate::utils::home();
+    dirs.extend(vec![
+        PlistDir {
+            path: home.join("Library/LaunchAgents"),
+            domain: Domain::User(user_uid),
+            for_use_by: ForWhom::User,
+            is_system_monitored: true,
+        },
+        PlistDir {
+            path: home.join(".config/angel/user"),
+            domain: Domain::User(user_uid),
+            for_use_by: ForWhom::Angel,
+            is_system_monitored: false,
+        },
+        PlistDir {
+            path: home.join(".config/angel/system"),
+            domain: Domain::System,
+            for_use_by: ForWhom::Angel,
+            is_system_monitored: false,
+        },
+        PlistDir {
+            path: home.join(".config/angel/gui"),
+            domain: Domain::Gui(user_uid),
+            for_use_by: ForWhom::Angel,
+            is_system_monitored: false,
+        },
+    ]);
 
     // Add user-defined directories from config
     for cfg_dir in config.get_directories() {
@@ -195,7 +194,7 @@ impl DaemonRegistry {
     pub fn get_match(&self, query: &str, exact: bool) -> Result<&Daemon> {
         let matches = self.find_matches(query, exact)?;
         match matches.len() {
-            0 => Err(UserError::DaemonNotFound(query.to_string()).into()),
+            0 => Err(AngelError::DaemonNotFound(query.to_string())),
             1 => Ok(matches[0]),
             _ => {
                 // Format daemons for display
@@ -236,9 +235,11 @@ impl DaemonRegistry {
             format!("(?i){}", regex::escape(query))
         };
 
-        let re = Regex::new(&pattern)
-            .map_err(|e| SystemError::Launchctl(format!("Invalid regex: {}", e)))?;
-
-        Ok(self.map.values().filter(|daemon| re.is_match(&daemon.name)).collect())
+        match Regex::new(&pattern) {
+            Ok(regex) => {
+                Ok(self.map.values().filter(|daemon| regex.is_match(&daemon.name)).collect())
+            }
+            Err(e) => Err(AngelError::InvalidArgument(format!("Invalid regex: {}", e))),
+        }
     }
 }

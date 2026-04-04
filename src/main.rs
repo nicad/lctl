@@ -13,30 +13,26 @@ mod utils;
 
 use clap::Parser;
 use cli::{Cli, Commands};
-use error::AngelError;
 
 fn main() {
+    if let Err(e) = run() {
+        output::stderr::error(&e.to_string());
+        std::process::exit(e.exit_code());
+    }
+}
+
+fn run() -> Result<(), error::AngelError> {
     let cli = Cli::parse();
 
-    // Initialize output context before any commands run
     output::init(cli.verbose);
 
-    // Load Angel instance before any command runs
-    let angel = match angel::Angel::load() {
-        Ok(angel) => angel,
-        Err(e) => {
-            match e {
-                AngelError::User(_) => output::stdout::error(&e.to_string()),
-                AngelError::System(_) => output::stderr::error(&e.to_string()),
-            };
-            std::process::exit(1);
-        }
-    };
+    let angel = angel::Angel::load()?;
 
-    let result = match cli.command {
+    match cli.command {
         Commands::Start(args) => commands::start::run(&angel, &args),
         Commands::Stop(args) => commands::stop::run(&angel, &args),
         Commands::Restart(args) => commands::restart::run(&angel, &args),
+        Commands::Reboot(args) => commands::reboot::run(&angel, &args),
         Commands::Status(args) => commands::status::run(&angel, &args),
         Commands::Logs(args) => commands::logs::run(&angel, &args),
         Commands::List(args) => commands::list::run(&angel, &args),
@@ -56,13 +52,5 @@ fn main() {
             commands::cheatsheet::run(&subcommand);
             Ok(())
         }
-    };
-
-    if let Err(e) = result {
-        match e {
-            AngelError::User(_) => output::stdout::error(&e.to_string()),
-            AngelError::System(_) => output::stderr::error(&e.to_string()),
-        }
-        std::process::exit(1);
     }
 }

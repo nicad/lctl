@@ -88,9 +88,9 @@ pub fn run(angel: &Angel, args: &LogsArgs) -> Result<()> {
 }
 
 fn read_log_file(path: &str) -> Result<String> {
-    let mut file = fs::File::open(path)?;
+    let mut file = fs::File::open(path).map_err(crate::error::AngelError::Io)?;
     let mut contents = String::new();
-    file.read_to_string(&mut contents)?;
+    file.read_to_string(&mut contents).map_err(crate::error::AngelError::Io)?;
 
     // Show last 50 lines if file is large
     let lines: Vec<&str> = contents.lines().collect();
@@ -133,7 +133,8 @@ fn get_unified_logs(process_name: &str, time_frame: &str) -> Result<String> {
             "--style",
             "compact",
         ])
-        .output()?;
+        .output()
+        .map_err(crate::error::AngelError::Io)?;
 
     if output.status.success() {
         let logs = String::from_utf8_lossy(&output.stdout);

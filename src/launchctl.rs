@@ -1,4 +1,4 @@
-use crate::error::{Result, SystemError};
+use crate::error::{AngelError, Result};
 use crate::output;
 use crate::styles::styles;
 use crate::types::{Daemon, Domain};
@@ -27,7 +27,7 @@ impl LaunchctlResult {
     /// Returns an error if the command failed or if the output indicates a bad request.
     pub fn validated_output(&self, service_name: &str) -> crate::error::Result<&str> {
         if !self.success() {
-            return Err(crate::error::SystemError::Launchctl(format!(
+            return Err(AngelError::Launchctl(format!(
                 "launchctl print failed for service: {}",
                 service_name
             ))
@@ -35,11 +35,9 @@ impl LaunchctlResult {
         }
 
         if self.output.starts_with("Bad request.") {
-            return Err(crate::error::SystemError::Launchctl(format!(
-                "Service not found: {}",
-                service_name
-            ))
-            .into());
+            return Err(
+                AngelError::Launchctl(format!("Service not found: {}", service_name)).into()
+            );
         }
 
         Ok(&self.output)
@@ -79,10 +77,10 @@ pub fn bootstrap(daemon: &Daemon) -> Result<LaunchctlResult> {
         .source_path
         .as_ref()
         .ok_or_else(|| {
-            SystemError::Launchctl("Cannot bootstrap daemon without source path".to_string())
+            AngelError::Launchctl("Cannot bootstrap daemon without source path".to_string())
         })?
         .to_str()
-        .ok_or_else(|| SystemError::Launchctl("Invalid source path encoding".to_string()))?;
+        .ok_or_else(|| AngelError::Launchctl("Invalid source path encoding".to_string()))?;
     let res = launchctl_exec(vec!["bootstrap", &daemon.domain_str(), path]);
     if res.as_ref().is_ok_and(|result| result.output.contains("Input/output error")) {
         match daemon.domain {
@@ -139,7 +137,7 @@ fn launchctl_exec(mut args: Vec<&str>) -> Result<LaunchctlResult> {
     }
 
     let output = cmd.args(&args).output().map_err(|e| {
-        SystemError::Launchctl(format!("Failed to execute launchctl command: {}", e))
+        AngelError::Launchctl(format!("Failed to execute launchctl command: {}", e))
     })?;
 
     let exit_code = output.status.code();

@@ -132,6 +132,8 @@ pub enum Commands {
     /// Restart a service
     #[command(alias = "kkill")]
     Restart(NameArgs),
+    /// Boot out then bootstrap (reload plist from disk; picks up symlink target changes)
+    Reboot(NameArgs),
     /// Bootstrap a service
     Bootstrap(NameArgs),
     /// Bootout a service

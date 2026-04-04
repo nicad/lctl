@@ -16,6 +16,7 @@ pub struct Angel {
 
 impl Angel {
     pub fn load() -> Result<Self> {
+        crate::utils::init_home()?;
         let config = Config::load()?;
         let angel_dir = get_angel_dir()?;
         let euid = unistd::geteuid();
@@ -44,14 +45,7 @@ fn get_angel_dir() -> Result<PathBuf> {
     // Fall back to XDG_CONFIG_HOME or ~/.config
     let config_dir = match dirs::config_dir() {
         Some(dir) => dir,
-        None => {
-            let home = crate::utils::get_home().ok_or_else(|| {
-                crate::error::SystemError::Config(anyhow::anyhow!(
-                    "HOME environment variable not set"
-                ))
-            })?;
-            home.join(".config")
-        }
+        None => crate::utils::home().join(".config"),
     };
     Ok(config_dir.join("angel"))
 }
