@@ -1,4 +1,4 @@
-use crate::error::{AngelError, Result};
+use crate::error::{Error, Result, err_msg};
 use std::path::PathBuf;
 use std::sync::OnceLock;
 
@@ -7,9 +7,9 @@ static HOME: OnceLock<PathBuf> = OnceLock::new();
 /// Initialize HOME from env. Call once at startup (e.g. in Angel::load()).
 pub fn init_home() -> Result<()> {
     let path = std::env::var("HOME")
-        .map_err(|_| AngelError::Config("HOME environment variable not set".into()))
+        .map_err(|_| Error::Config(err_msg!("HOME environment variable not set")))
         .map(PathBuf::from)?;
-    HOME.set(path).map_err(|_| AngelError::Config("HOME already initialized".into()))?;
+    HOME.set(path).map_err(|_| Error::Config(err_msg!("HOME already initialized")))?;
     Ok(())
 }
 

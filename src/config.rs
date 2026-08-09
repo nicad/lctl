@@ -1,4 +1,4 @@
-use crate::error::{AngelError, Result};
+use crate::error::{Error, Result, err_msg};
 use crate::types::Domain;
 use serde::{Deserialize, Serialize};
 
@@ -79,8 +79,9 @@ impl Config {
         for path in config_paths {
             if path.exists() {
                 let content = std::fs::read_to_string(&path)?;
-                let mut config: Config = serde_yaml::from_str(&content)
-                    .map_err(|e| AngelError::Config(format!("Failed to parse config: {}", e)))?;
+                let mut config: Config = serde_yaml::from_str(&content).map_err(|e| {
+                    Error::Config(err_msg!("Failed to parse config: {}", e))
+                })?;
 
                 // Expand ~ in directory paths
                 if let Some(ref mut dirs) = config.directories {

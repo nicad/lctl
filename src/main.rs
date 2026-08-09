@@ -17,11 +17,11 @@ use cli::{Cli, Commands};
 fn main() {
     if let Err(e) = run() {
         output::stderr::error(&e.to_string());
-        std::process::exit(e.exit_code());
+        std::process::exit(1);
     }
 }
 
-fn run() -> Result<(), error::AngelError> {
+fn run() -> Result<(), error::Error> {
     let cli = Cli::parse();
 
     output::init(cli.verbose);

@@ -1,4 +1,4 @@
-use crate::error::{AngelError, Result};
+use crate::error::{Error, Result, err_msg};
 use crate::output;
 use crate::styles::styles;
 use crate::types::{Daemon, Domain};
@@ -7,40 +7,50 @@ use std::process::Command;
 use std::sync::OnceLock;
 
 #[derive(Debug)]
-pub struct LaunchctlResult {
-    pub output: String,
-    output_bytes: Vec<u8>,
-    pub exit_code: Option<i32>,
+pub struct LaunchctlOutput {
+    pub stdout: String,
     pub stderr: String,
+    pub exit_code: Option<i32>,
+    stdout_bytes: Vec<u8>,
 }
 
-impl LaunchctlResult {
+impl LaunchctlOutput {
     pub fn success(&self) -> bool {
         self.exit_code == Some(0)
     }
 
-    pub fn output_bytes(&self) -> &[u8] {
-        &self.output_bytes
+    pub fn stdout_bytes(&self) -> &[u8] {
+        &self.stdout_bytes
     }
 
-    /// Validates the result and returns the output string if successful.
-    /// Returns an error if the command failed or if the output indicates a bad request.
-    pub fn validated_output(&self, service_name: &str) -> crate::error::Result<&str> {
+    /// Convert a non-zero launchctl exit into [`Error::Launchctl`].
+    pub fn require_ok(&self, action: &str) -> Result<&Self> {
+        if self.success() {
+            Ok(self)
+        } else {
+            let detail = if self.stderr.is_empty() {
+                format!("exit code {:?}", self.exit_code)
+            } else {
+                self.stderr.clone()
+            };
+            Err(Error::launchctl(action, detail))
+        }
+    }
+
+    /// Require success, reject launchctl "Bad request." as not found, return stdout.
+    pub fn require_print_output(&self, service_name: &str) -> Result<&str> {
         if !self.success() {
-            return Err(AngelError::Launchctl(format!(
-                "launchctl print failed for service: {}",
-                service_name
-            ))
-            .into());
+            return Err(Error::launchctl(
+                format!("print {}", service_name),
+                format!("launchctl print failed for service: {}", service_name),
+            ));
         }
 
-        if self.output.starts_with("Bad request.") {
-            return Err(
-                AngelError::Launchctl(format!("Service not found: {}", service_name)).into()
-            );
+        if self.stdout.starts_with("Bad request.") {
+            return Err(Error::NotFound(err_msg!(service_name)));
         }
 
-        Ok(&self.output)
+        Ok(&self.stdout)
     }
 }
 
@@ -72,17 +82,15 @@ impl PrintTarget for String {
     }
 }
 
-pub fn bootstrap(daemon: &Daemon) -> Result<LaunchctlResult> {
+pub fn bootstrap(daemon: &Daemon) -> Result<LaunchctlOutput> {
     let path = daemon
         .source_path
         .as_ref()
-        .ok_or_else(|| {
-            AngelError::Launchctl("Cannot bootstrap daemon without source path".to_string())
-        })?
+        .ok_or_else(|| Error::InvalidInput(err_msg!("Cannot bootstrap daemon without source path")))?
         .to_str()
-        .ok_or_else(|| AngelError::Launchctl("Invalid source path encoding".to_string()))?;
+        .ok_or_else(|| Error::InvalidInput(err_msg!("Invalid source path encoding")))?;
     let res = launchctl_exec(vec!["bootstrap", &daemon.domain_str(), path]);
-    if res.as_ref().is_ok_and(|result| result.output.contains("Input/output error")) {
+    if res.as_ref().is_ok_and(|result| result.stdout.contains("Input/output error")) {
         match daemon.domain {
             Domain::User(_) => {
                 output::stdout::hint(
@@ -95,35 +103,35 @@ pub fn bootstrap(daemon: &Daemon) -> Result<LaunchctlResult> {
     res
 }
 
-pub fn bootout(daemon: &Daemon) -> Result<LaunchctlResult> {
+pub fn bootout(daemon: &Daemon) -> Result<LaunchctlOutput> {
     launchctl_exec(vec!["bootout", &service_target(daemon)])
 }
 
-pub fn enable(daemon: &Daemon) -> Result<LaunchctlResult> {
+pub fn enable(daemon: &Daemon) -> Result<LaunchctlOutput> {
     launchctl_exec(vec!["enable", &service_target(daemon)])
 }
 
-pub fn disable(daemon: &Daemon) -> Result<LaunchctlResult> {
+pub fn disable(daemon: &Daemon) -> Result<LaunchctlOutput> {
     launchctl_exec(vec!["disable", &service_target(daemon)])
 }
 
-pub fn kickstart(daemon: &Daemon) -> Result<LaunchctlResult> {
+pub fn kickstart(daemon: &Daemon) -> Result<LaunchctlOutput> {
     launchctl_exec(vec!["kickstart", &service_target(daemon)])
 }
 
-pub fn kickstart_kill(daemon: &Daemon) -> Result<LaunchctlResult> {
+pub fn kickstart_kill(daemon: &Daemon) -> Result<LaunchctlOutput> {
     launchctl_exec(vec!["kickstart", "-k", &service_target(daemon)])
 }
 
-pub fn kill(daemon: &Daemon, signal: &str) -> Result<LaunchctlResult> {
+pub fn kill(daemon: &Daemon, signal: &str) -> Result<LaunchctlOutput> {
     launchctl_exec(vec!["kill", signal, &service_target(daemon)])
 }
 
-pub fn print<T: PrintTarget>(target: &T) -> Result<LaunchctlResult> {
+pub fn print<T: PrintTarget>(target: &T) -> Result<LaunchctlOutput> {
     launchctl_exec(vec!["print", &target.target_str()])
 }
 
-fn launchctl_exec(mut args: Vec<&str>) -> Result<LaunchctlResult> {
+fn launchctl_exec(mut args: Vec<&str>) -> Result<LaunchctlOutput> {
     let mut cmd = if is_root() {
         args.insert(0, "launchctl");
         Command::new("sudo")
@@ -137,18 +145,18 @@ fn launchctl_exec(mut args: Vec<&str>) -> Result<LaunchctlResult> {
     }
 
     let output = cmd.args(&args).output().map_err(|e| {
-        AngelError::Launchctl(format!("Failed to execute launchctl command: {}", e))
+        Error::unexpected(format!("Failed to execute launchctl command: {}", e))
     })?;
 
     let exit_code = output.status.code();
     let stdout_str = String::from_utf8_lossy(&output.stdout).to_string();
     let stderr_str = String::from_utf8_lossy(&output.stderr).to_string();
 
-    Ok(LaunchctlResult {
-        output: stdout_str,
-        output_bytes: output.stdout,
-        exit_code,
+    Ok(LaunchctlOutput {
+        stdout: stdout_str,
         stderr: stderr_str,
+        exit_code,
+        stdout_bytes: output.stdout,
     })
 }
 

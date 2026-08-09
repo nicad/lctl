@@ -1,5 +1,5 @@
 use crate::config::Config;
-use crate::error::{AngelError, Result};
+use crate::error::{Error, Result, err_msg};
 use crate::output::stderr;
 use crate::parser::Parser;
 use crate::styles::styles;
@@ -192,12 +192,28 @@ impl DaemonRegistry {
     }
 
     pub fn get_match(&self, query: &str, exact: bool) -> Result<&Daemon> {
-        let matches = self.find_matches(query, exact)?;
+        self.select_match(self.find_matches(query, exact)?, query)
+    }
+
+    /// Fuzzy match restricted to plists loaded from `~/.config/angel/{user,system,gui}`.
+    pub fn get_angel_match(&self, query: &str) -> Result<&Daemon> {
+        let matches = self
+            .find_matches(query, false)?
+            .into_iter()
+            .filter(|d| d.for_use_by == ForWhom::Angel)
+            .collect();
+        self.select_match(matches, query)
+    }
+
+    pub fn get_matches(&self, query: &str, exact: bool) -> Result<Vec<&Daemon>> {
+        self.find_matches(query, exact)
+    }
+
+    fn select_match<'a>(&self, matches: Vec<&'a Daemon>, query: &str) -> Result<&'a Daemon> {
         match matches.len() {
-            0 => Err(AngelError::DaemonNotFound(query.to_string())),
+            0 => Err(Error::NotFound(err_msg!(query))),
             1 => Ok(matches[0]),
             _ => {
-                // Format daemons for display
                 let items: Vec<String> = matches
                     .iter()
                     .map(|daemon| {
@@ -224,10 +240,6 @@ impl DaemonRegistry {
         }
     }
 
-    pub fn get_matches(&self, query: &str, exact: bool) -> Result<Vec<&Daemon>> {
-        self.find_matches(query, exact)
-    }
-
     fn find_matches(&self, query: &str, exact: bool) -> Result<Vec<&Daemon>> {
         let pattern = if exact {
             format!("^{}$", regex::escape(query))
@@ -239,7 +251,7 @@ impl DaemonRegistry {
             Ok(regex) => {
                 Ok(self.map.values().filter(|daemon| regex.is_match(&daemon.name)).collect())
             }
-            Err(e) => Err(AngelError::InvalidArgument(format!("Invalid regex: {}", e))),
+            Err(e) => Err(Error::InvalidInput(err_msg!("Invalid regex: {}", e))),
         }
     }
 }

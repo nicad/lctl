@@ -17,10 +17,10 @@ pub fn run(angel: &Angel, args: &StatusArgs) -> Result<()> {
     // Debug output
     if args.debug {
         stdout::writeln(&styles::prefix(Color::Yellow, "=== Rendered launchctl print output ==="));
-        stdout::writeln(&result.output);
+        stdout::writeln(&result.stdout);
         stdout::writeln("");
         stdout::writeln(&styles::prefix(Color::Yellow, "=== Raw launchctl print output ==="));
-        let escaped_output = result.output.replace('\n', "\\n").replace('\t', "\\t");
+        let escaped_output = result.stdout.replace('\n', "\\n").replace('\t', "\\t");
         stdout::writeln(&escaped_output);
         stdout::writeln("");
     }

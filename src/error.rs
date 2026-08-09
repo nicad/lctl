@@ -1,52 +1,72 @@
-use thiserror::Error;
+use error_set::error_set;
 
-pub type Result<T> = std::result::Result<T, AngelError>;
+error_set! {
+    /// Plain text error payload
+    #[display("{msg}")]
+    struct BasicError {
+        pub msg: String,
+    }
 
-#[derive(Error, Debug)]
-pub enum AngelError {
-    /// USER ERRORS
+    Error := {
+        #[display("Daemon not found: {0}")]
+        NotFound(BasicError),
 
-    #[error("Daemon not found: {0}")]
-    DaemonNotFound(String),
+        #[display("Sudo is required to perform this action")]
+        NeedsRoot,
 
-    #[error("Sudo is required to perform this action")]
-    RequiresRoot,
+        #[display("Invalid argument: {0}")]
+        InvalidInput(BasicError),
 
-    #[error("Invalid argument: {0}")]
-    InvalidArgument(String),
+        #[display("Config error: {0}")]
+        Config(BasicError),
 
-    #[error("Config error: {0}")]
-    Config(String),
+        #[display("failed to {action}: {detail}")]
+        Launchctl {
+            action: String,
+            detail: String,
+        },
 
-    /// INTERNAL ERRORS
-
-    #[error("IO error: {0}")]
-    Io(#[from] std::io::Error),
-
-    #[error("Plist parse error: {0}")]
-    Plist(#[from] plist::Error),
-
-    #[error("Nix error: {0}")]
-    Nix(#[from] nix::Error),
-
-    #[error("Dialoguer error: {0}")]
-    Dialoguer(#[from] dialoguer::Error),
-
-    #[error("Launchctl error: {0}")]
-    Launchctl(String),
-
-    #[error("Parser error: {0}")]
-    Parser(String),
+        #[display("{0}")]
+        Unexpected(BasicError),
+    }
 }
 
-impl AngelError {
-    pub fn exit_code(&self) -> i32 {
-        match self {
-            AngelError::DaemonNotFound(_) => 1,
-            AngelError::RequiresRoot => 77,
-            AngelError::InvalidArgument(_) => 64,
-            AngelError::Config(_) => 78,
-            _ => 1,
+/// Build a [`BasicError`] from a format string (like `format!`) or any [`Display`] value.
+macro_rules! err_msg {
+    ($fmt:literal $(, $arg:expr)* $(,)?) => {
+        $crate::error::BasicError {
+            msg: format!($fmt $(, $arg)*),
         }
+    };
+    ($m:expr) => {
+        $crate::error::BasicError { msg: ($m).to_string() }
+    };
+}
+
+pub(crate) use err_msg;
+
+pub type Result<T> = std::result::Result<T, Error>;
+
+macro_rules! from_unexpected {
+    ($($t:ty),+ $(,)?) => {
+        $(
+            impl From<$t> for Error {
+                fn from(e: $t) -> Self {
+                    Error::Unexpected(err_msg!(e))
+                }
+            }
+        )+
+    };
+}
+
+from_unexpected!(std::io::Error, plist::Error, nix::Error, dialoguer::Error);
+
+impl Error {
+    pub fn launchctl(action: impl Into<String>, detail: impl Into<String>) -> Self {
+        Error::Launchctl { action: action.into(), detail: detail.into() }
+    }
+
+    pub fn unexpected(msg: impl std::fmt::Display) -> Self {
+        Error::Unexpected(err_msg!(msg))
     }
 }

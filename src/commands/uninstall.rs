@@ -1,6 +1,6 @@
 use crate::angel::Angel;
 use crate::cli::NameArgs;
-use crate::error::{AngelError, Result};
+use crate::error::{err_msg, Error, Result};
 use crate::launchctl;
 use crate::output::{is_verbose, stderr, stdout};
 use crate::parser::{Parser, ServiceItem};
@@ -34,9 +34,9 @@ fn get_source_path(daemon: &Daemon) -> Result<PathBuf> {
     let parsed = Parser::parse_print_service(&result, daemon)?;
     match parsed.get("path") {
         Some(ServiceItem::Str(s)) => Ok(PathBuf::from(*s)),
-        _ => Err(AngelError::InvalidArgument(
-            "Service does not have an installed plist file".to_string(),
-        )),
+        _ => Err(Error::InvalidInput(err_msg!(
+            "Service does not have an installed plist file"
+        ))),
     }
 }
 

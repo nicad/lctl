@@ -1,8 +1,8 @@
 use crate::angel::Angel;
 use crate::cli::InstallArgs;
-use crate::error::{AngelError, Result};
+use crate::error::{Error, Result, err_msg};
 use crate::launchctl;
-use crate::output::{is_verbose, stdout};
+use crate::output::{is_verbose, stderr, stdout};
 use crate::styles::styles;
 use crate::types::{Daemon, Domain, ForWhom, Plist};
 use crate::utils;
@@ -29,7 +29,7 @@ pub fn run(angel: &Angel, args: &InstallArgs) -> Result<()> {
     let service_name = plist_data
         .label
         .clone()
-        .ok_or_else(|| AngelError::InvalidArgument("No label found in plist".to_string()))?;
+        .ok_or_else(|| Error::InvalidInput(err_msg!("No label found in plist")))?;
 
     stdout::hint(&format!(
         "Installing {} from {}",
@@ -55,17 +55,14 @@ pub fn run(angel: &Angel, args: &InstallArgs) -> Result<()> {
     );
 
     let result = launchctl::bootstrap(&daemon)?;
-    if result.success() {
-        stdout::success(&format!("installed {}", daemon.name));
-        Ok(())
-    } else {
-        Err(AngelError::Launchctl(format!("failed to install {}: {}", daemon.name, result.stderr)))
-    }
+    result.require_ok(&format!("install {}", daemon.name))?;
+    stdout::success(&format!("installed {}", daemon.name));
+    Ok(())
 }
 
-/// Local plist path: existing file or symlink (including dangling). Otherwise try fuzzy daemon name match.
-/// Symlinks are followed; the path is the canonical target. `preselected_domain` is set when that path
-/// lies under `~/.config/angel/{user,system,gui}` so the install domain prompt can be skipped.
+/// Local plist path: existing file or symlink (including dangling). Otherwise try fuzzy daemon name
+/// match (covers plists already loaded from `~/.config/angel/{user,system,gui}`). Symlinks are
+/// followed; `preselected_domain` skips the domain prompt when path is under those angel dirs.
 fn resolve_source_path(
     angel: &Angel,
     expanded: &Path,
@@ -77,21 +74,19 @@ fn resolve_source_path(
     let path = if is_local_plist {
         expanded.to_path_buf()
     } else {
-        let daemon = angel.daemons.get_match(query, false)?;
+        let query = query.strip_suffix(".plist").unwrap_or(query);
+        let daemon = angel.daemons.get_angel_match(query)?;
         daemon.source_path.clone().ok_or_else(|| {
-            AngelError::InvalidArgument(format!(
-                "Daemon `{}` has no plist path on disk",
-                daemon.name
-            ))
+            Error::InvalidInput(err_msg!("Daemon `{}` has no plist path on disk", daemon.name))
         })?
     };
 
+    if path.is_symlink() {
+        stderr::warn("source is a symlink; this may cause problems");
+    }
+
     let resolved = std::fs::canonicalize(&path).map_err(|e| {
-        AngelError::InvalidArgument(format!(
-            "Could not resolve source path `{}`: {}",
-            path.display(),
-            e
-        ))
+        Error::InvalidInput(err_msg!("Could not resolve source path `{}`: {}", path.display(), e))
     })?;
     let preselected_domain = infer_domain_from_angel_path(&resolved, angel.uid.as_raw());
     Ok((resolved, preselected_domain))
@@ -120,8 +115,8 @@ fn kill_running_service(angel: &Angel, service_name: &str) -> Result<()> {
             Some(_) => daemon,
             None => return Ok(()), // not running. proceed.
         },
-        Err(AngelError::DaemonNotFound(_)) => return Ok(()), // not found. proceed.
-        Err(e) => return Err(e.into()),
+        Err(Error::NotFound(_)) => return Ok(()), // not found. proceed.
+        Err(e) => return Err(e),
     };
     confirm_kill_running_service(&daemon)?;
     launchctl::disable(daemon)?; // disable before bootout to prevent restart when keepAlive = true
@@ -140,7 +135,7 @@ fn confirm_kill_running_service(daemon: &Daemon) -> Result<()> {
         .unwrap_or(false)
         .then_some(())
         .ok_or_else(|| {
-            AngelError::InvalidArgument(format!(
+            Error::InvalidInput(err_msg!(
                 "A service with the name {} is already running. Bootstrap will fail.",
                 daemon.name
             ))
@@ -185,7 +180,7 @@ fn confirm_overwrite(target_path: &Path) -> Result<()> {
         .unwrap_or(false);
 
     if !choice {
-        return Err(AngelError::InvalidArgument(format!(
+        return Err(Error::InvalidInput(err_msg!(
             "A file already exists at {}",
             styles::display_source_path(target_path, is_verbose())
         )));
@@ -215,9 +210,10 @@ fn get_domain_selection(
     let plist_domain = Domain::from_plist(plist_data, angel.uid.as_raw(), selected_domain.clone());
     match plist_domain == selected_domain {
         false => {
-            return Err(AngelError::InvalidArgument(format!(
+            return Err(Error::InvalidInput(err_msg!(
                 "The domain written in the plist is `{}` does not match the selected domain `{}`.",
-                plist_domain, selected_domain
+                plist_domain,
+                selected_domain
             )));
         }
         true => {}
@@ -225,7 +221,7 @@ fn get_domain_selection(
 
     match selected_domain {
         Domain::System => match angel.is_root() {
-            false => return Err(AngelError::RequiresRoot.into()),
+            false => return Err(Error::NeedsRoot),
             true => {}
         },
         _ => {}

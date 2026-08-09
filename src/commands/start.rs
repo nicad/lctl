@@ -1,6 +1,6 @@
 use crate::angel::Angel;
 use crate::cli::StartArgs;
-use crate::error::{AngelError, Result};
+use crate::error::Result;
 use crate::launchctl;
 use crate::output::stdout;
 
@@ -10,14 +10,8 @@ pub fn run(angel: &Angel, args: &StartArgs) -> Result<()> {
         true => launchctl::kickstart_kill(daemon)?,
         false => launchctl::kickstart(daemon)?,
     };
-    stdout::write(&result.output);
-    if result.success() {
-        stdout::success(&format!("started {}", daemon.name));
-        Ok(())
-    } else {
-        Err(AngelError::Launchctl(format!(
-            "failed to start {}: {}",
-            daemon.name, result.stderr
-        )))
-    }
+    stdout::write(&result.stdout);
+    result.require_ok(&format!("start {}", daemon.name))?;
+    stdout::success(&format!("started {}", daemon.name));
+    Ok(())
 }

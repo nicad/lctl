@@ -13,10 +13,10 @@ impl Parser {
     }
 
     pub fn parse_print_service<'a>(
-        result: &'a crate::launchctl::LaunchctlResult,
+        result: &'a crate::launchctl::LaunchctlOutput,
         daemon: &crate::types::Daemon,
     ) -> crate::error::Result<ParsedService<'a>> {
-        let output = result.validated_output(&daemon.name)?;
+        let output = result.require_print_output(&daemon.name)?;
         service::parse_print_service(output)
     }
 }

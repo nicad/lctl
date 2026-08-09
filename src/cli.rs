@@ -46,7 +46,7 @@ pub struct ListArgs {
 
 #[derive(Args)]
 pub struct InstallArgs {
-    /// Path to the service file
+    /// Path to the service file, or a daemon name / bare `.plist` filename
     pub path: String,
     /// Make a hard copy of the file instead of a symlink
     #[arg(short, long, default_value = "symlink")]

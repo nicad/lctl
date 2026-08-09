@@ -1,4 +1,4 @@
-use crate::error::{AngelError, Result};
+use crate::error::{Error, Result};
 use crate::launchctl;
 use crate::types::Domain;
 use nom::{
@@ -12,16 +12,8 @@ use nom::{
 
 pub fn parse_print_domain(domain: &Domain) -> Result<Vec<(Option<u32>, Option<String>, String)>> {
     let result = launchctl::print(&domain.to_string())?;
-
-    if !result.success() {
-        return Err(AngelError::Launchctl(format!(
-            "launchctl print failed for domain: {}",
-            domain
-        ))
-        .into());
-    }
-
-    parse_domain_output(result.output_bytes())
+    result.require_ok(&format!("print domain {}", domain))?;
+    parse_domain_output(result.stdout_bytes())
 }
 
 fn parse_domain_output(input: &[u8]) -> Result<Vec<(Option<u32>, Option<String>, String)>> {
@@ -33,7 +25,7 @@ fn parse_domain_output(input: &[u8]) -> Result<Vec<(Option<u32>, Option<String>,
         many_till(parse_service_line, closing_brace_parser),
     );
     let (_, (_, (services, _))) =
-        parser.parse(input).map_err(|e| AngelError::Parser(e.to_string()))?;
+        parser.parse(input).map_err(|e| Error::unexpected(e))?;
     Ok(services)
 }
 
