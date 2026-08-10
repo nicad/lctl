@@ -29,7 +29,6 @@ fn main() {
     let man_dst = man_dir.join("angel.1");
     if let Err(e) = fs::copy(&man_src, &man_dst) {
         println!("cargo:warning=could not install man page to {}: {e}", man_dst.display());
-        return;
     }
 }
 
