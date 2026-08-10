@@ -58,6 +58,14 @@ Common flags:
 
 Run `angel --help` or `angel <command> --help` for options. See `man angel` for the full manual.
 
+Shell completions install automatically via Homebrew. From a cargo build:
+
+```bash
+angel completion zsh  > "${fpath[1]}/_angel"   # or another dir on $fpath
+angel completion bash > "$(brew --prefix)/etc/bash_completion.d/angel"
+angel completion fish > ~/.config/fish/completions/angel.fish
+```
+
 ## Configuration
 
 Angel optionally reads YAML from the first existing path among:

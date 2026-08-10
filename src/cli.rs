@@ -177,4 +177,9 @@ pub enum Commands {
     Disable(NameArgs),
     /// Print service information (launchctl print wrapper)
     Print(NameArgs),
+    /// Generate shell completions
+    Completion {
+        /// Shell to generate completions for
+        shell: clap_complete::Shell,
+    },
 }

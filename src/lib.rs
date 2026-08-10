@@ -13,7 +13,7 @@ pub mod types;
 pub mod utils;
 
 use angel::Angel;
-use clap::Parser;
+use clap::{CommandFactory, Parser};
 use cli::{Cli, Commands};
 use error::Result;
 
@@ -24,7 +24,14 @@ pub fn run() -> Result<()> {
 
     output::init(cli.verbose, cli.yes);
 
-    dispatch(&Angel::load()?, cli.command)
+    match cli.command {
+        Commands::Completion { shell } => {
+            let mut cmd = Cli::command();
+            clap_complete::generate(shell, &mut cmd, "angel", &mut std::io::stdout());
+            Ok(())
+        }
+        command => dispatch(&Angel::load()?, command),
+    }
 }
 
 fn dispatch(angel: &Angel, command: Commands) -> Result<()> {
@@ -44,6 +51,7 @@ fn dispatch(angel: &Angel, command: Commands) -> Result<()> {
         Commands::Enable(args) => commands::enable::run(angel, &args),
         Commands::Disable(args) => commands::disable::run(angel, &args),
         Commands::Print(args) => commands::print::run(angel, &args),
+        Commands::Completion { .. } => unreachable!("handled in run()"),
     }
 }
 

@@ -1,6 +1,6 @@
 [package]
     name        = "angel"
-    version     = "0.1.0"
+    version     = "0.1.1"
     edition     = "2024"
     default-run = "angel"
     description = "The launchctl macOS users deserve"
@@ -15,7 +15,8 @@
         targets = ["aarch64-apple-darwin", "x86_64-apple-darwin"]
 
 [dependencies]
-    clap        = { version = "4", features = ["derive"] }
+    clap          = { version = "4", features = ["derive"] }
+    clap_complete = "4"
     serde       = { version = "1", features = ["derive"] }
     serde_yaml  = "0.9"
     plist       = "1"
