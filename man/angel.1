@@ -4,7 +4,7 @@
 .Os
 .Sh NAME
 .Nm angel
-.Nd friendlier CLI for managing macOS launchd services
+.Nd the launchctl macOS should've implemented
 .Sh SYNOPSIS
 .Nm
 .Op Fl v | Fl \-verbose
@@ -14,10 +14,12 @@
 .Op Ar args
 .Sh DESCRIPTION
 .Nm
-is a macOS launchd service manager.
+is the launchctl macOS should've implemented.
+A friendlier CLI with lots of helpful features: services can live
+wherever you want, more meaningful errors, and a status command.
 It wraps common
 .Xr launchctl 1
-workflows with clearer commands for installing, starting, stopping,
+workflows for installing, starting, stopping,
 restarting, listing, inspecting, and logging services.
 .Pp
 Service names may be matched fuzzily unless

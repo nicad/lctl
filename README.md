@@ -1,8 +1,8 @@
 # Angel
 
-The launchctl macOS users deserve.
+The launchctl macOS *should've* implemented.
 
-A friendlier CLI for managing launchd services — install, start/stop/restart, status, logs, and more.
+A friendlier CLI with lots of helpful features: the ability for services to live wherever you want, more meaningful errors, and even a status command!
 
 Requires macOS.
 

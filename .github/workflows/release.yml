@@ -91,7 +91,7 @@ jobs:
           FORMULA="$TAP_DIR/Formula/angel.rb"
           {
             echo 'class Angel < Formula'
-            echo '  desc "Friendlier CLI for managing macOS launchd services"'
+            echo "  desc \"launchctl macOS should've implemented\""
             echo '  homepage "https://github.com/oliviaBahr/angel"'
             echo "  url \"${URL}\""
             echo "  sha256 \"${SHA256}\""
@@ -109,7 +109,7 @@ jobs:
             echo
             echo '  test do'
             echo '    assert_match version.to_s, shell_output("#{bin}/angel --version")'
-            echo '    assert_match "launchd", shell_output("#{bin}/angel --help")'
+            echo '    assert_match "should", shell_output("#{bin}/angel --help")'
             echo '  end'
             echo 'end'
           } > "$FORMULA"
