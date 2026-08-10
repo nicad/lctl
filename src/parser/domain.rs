@@ -45,3 +45,39 @@ fn parse_service_line(input: &[u8]) -> IResult<&[u8], (Option<u32>, Option<Strin
 fn non_whitespace1(input: &[u8]) -> IResult<&[u8], &[u8]> {
     input.split_at_position1_complete(|item| item.as_char().is_whitespace(), ErrorKind::Char)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_services_block() {
+        let input = br#"gui/501 = {
+	type = prompt
+	services = {
+		123	0	com.example.running
+		-	78	com.example.idle
+	}
+	disabled services = {
+	}
+}
+"#;
+        let services = parse_domain_output(input).unwrap();
+        assert_eq!(services.len(), 2);
+        assert_eq!(
+            services[0],
+            (Some(123), Some("0".into()), "com.example.running".into())
+        );
+        assert_eq!(
+            services[1],
+            (None, Some("78".into()), "com.example.idle".into())
+        );
+    }
+
+    #[test]
+    fn rejects_missing_services_block() {
+        let input = b"gui/501 = {\n\ttype = prompt\n}\n";
+        assert!(parse_domain_output(input).is_err());
+    }
+}
+

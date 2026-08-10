@@ -45,7 +45,7 @@ pub enum ForWhom {
     Angel,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct Plist {
     #[serde(rename = "Label", skip_serializing_if = "Option::is_none")]
     pub label: Option<String>,
@@ -145,3 +145,59 @@ impl Daemon {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn plist_session(session: &str) -> Plist {
+        Plist {
+            limit_load_to_session_type: Some(session.to_string()),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn domain_from_plist_session_types() {
+        let uid = 501;
+        assert_eq!(
+            Domain::from_plist(&plist_session("Aqua"), uid, Domain::System),
+            Domain::Gui(uid)
+        );
+        assert_eq!(
+            Domain::from_plist(&plist_session("Background"), uid, Domain::System),
+            Domain::User(uid)
+        );
+        assert_eq!(
+            Domain::from_plist(&plist_session("LoginWindow"), uid, Domain::System),
+            Domain::User(uid)
+        );
+        assert_eq!(
+            Domain::from_plist(&plist_session("System"), uid, Domain::Gui(uid)),
+            Domain::System
+        );
+    }
+
+    #[test]
+    fn domain_from_plist_unknown_or_missing_uses_default() {
+        let uid = 501;
+        let default = Domain::User(uid);
+        assert_eq!(
+            Domain::from_plist(&plist_session("SomethingElse"), uid, default),
+            default
+        );
+        assert_eq!(
+            Domain::from_plist(&Plist::default(), uid, default),
+            default
+        );
+    }
+
+    #[test]
+    fn domain_display() {
+        assert_eq!(Domain::System.to_string(), "system");
+        assert_eq!(Domain::User(501).to_string(), "user/501");
+        assert_eq!(Domain::Gui(501).to_string(), "gui/501");
+        assert_eq!(Domain::Unknown.to_string(), "Unknown");
+    }
+}
+
