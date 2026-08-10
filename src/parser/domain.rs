@@ -10,13 +10,20 @@ use nom::{
     sequence::{preceded, terminated},
 };
 
-pub fn parse_print_domain(domain: &Domain) -> Result<Vec<(Option<u32>, Option<String>, String)>> {
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DomainService {
+    pub pid: Option<u32>,
+    pub last_exit_code: Option<String>,
+    pub name: String,
+}
+
+pub fn parse_print_domain(domain: &Domain) -> Result<Vec<DomainService>> {
     let result = launchctl::print(&domain.to_string())?;
     result.require_ok(&format!("print domain {}", domain))?;
     parse_domain_output(result.stdout.as_bytes())
 }
 
-fn parse_domain_output(input: &[u8]) -> Result<Vec<(Option<u32>, Option<String>, String)>> {
+fn parse_domain_output(input: &[u8]) -> Result<Vec<DomainService>> {
     let services_marker: &[u8] = b"services = {";
     let closing_brace_parser = preceded(multispace0, tag(b"}" as &[u8]));
 
@@ -29,17 +36,17 @@ fn parse_domain_output(input: &[u8]) -> Result<Vec<(Option<u32>, Option<String>,
     Ok(services)
 }
 
-fn parse_service_line(input: &[u8]) -> IResult<&[u8], (Option<u32>, Option<String>, String)> {
+fn parse_service_line(input: &[u8]) -> IResult<&[u8], DomainService> {
     let (input, _) = multispace0(input)?;
     let (input, pid_bytes) = terminated(non_whitespace1, multispace1).parse(input)?;
     let (input, exit_code_bytes) = terminated(non_whitespace1, multispace1).parse(input)?;
     let (input, label_bytes) = terminated(non_whitespace1, multispace0).parse(input)?;
 
     let pid = std::str::from_utf8(pid_bytes).ok().and_then(|s| s.parse::<u32>().ok());
-    let exit_code = std::str::from_utf8(exit_code_bytes).ok().map(|s| s.to_string());
-    let label = String::from_utf8_lossy(label_bytes).trim().to_string();
+    let last_exit_code = std::str::from_utf8(exit_code_bytes).ok().map(|s| s.to_string());
+    let name = String::from_utf8_lossy(label_bytes).trim().to_string();
 
-    Ok((input, (pid, exit_code, label)))
+    Ok((input, DomainService { pid, last_exit_code, name }))
 }
 
 fn non_whitespace1(input: &[u8]) -> IResult<&[u8], &[u8]> {
@@ -66,11 +73,19 @@ mod tests {
         assert_eq!(services.len(), 2);
         assert_eq!(
             services[0],
-            (Some(123), Some("0".into()), "com.example.running".into())
+            DomainService {
+                pid: Some(123),
+                last_exit_code: Some("0".into()),
+                name: "com.example.running".into(),
+            }
         );
         assert_eq!(
             services[1],
-            (None, Some("78".into()), "com.example.idle".into())
+            DomainService {
+                pid: None,
+                last_exit_code: Some("78".into()),
+                name: "com.example.idle".into(),
+            }
         );
     }
 
@@ -80,4 +95,3 @@ mod tests {
         assert!(parse_domain_output(input).is_err());
     }
 }
-

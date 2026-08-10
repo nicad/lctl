@@ -1,6 +1,7 @@
 use crate::error::{Error, Result, err_msg};
 use crate::types::Domain;
 use serde::{Deserialize, Serialize};
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Config {
@@ -31,7 +32,7 @@ impl ConfigDomain {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct DirectoryConfig {
-    pub path: String,
+    pub path: PathBuf,
     pub domain: ConfigDomain,
 }
 
@@ -39,12 +40,12 @@ impl Config {
     pub fn load() -> Result<Config> {
         // Skip config loading if running as root
         let home = crate::utils::home()?;
-        if home.as_path() == std::path::Path::new("/var/root") {
+        if home.as_path() == Path::new("/var/root") {
             return Ok(Config { directories: None });
         }
 
         // Try config file locations
-        let config_paths = vec![
+        let config_paths = [
             home.join(".angelrc"),
             dirs::config_dir().map(|p| p.join("angel").join(".angelrc")).unwrap_or_default(),
             home.join(".config").join("angel").join(".angelrc"),
@@ -60,7 +61,8 @@ impl Config {
                 // Expand ~ in directory paths
                 if let Some(ref mut dirs) = config.directories {
                     for dir in dirs.iter_mut() {
-                        dir.path = crate::utils::expand_path(&dir.path)?.display().to_string();
+                        let raw = dir.path.to_string_lossy();
+                        dir.path = crate::utils::expand_path(&raw)?;
                     }
                 }
 
@@ -72,7 +74,7 @@ impl Config {
         Ok(Config { directories: None })
     }
 
-    pub fn get_directories(&self) -> Vec<DirectoryConfig> {
-        self.directories.clone().unwrap_or_default()
+    pub fn directories(&self) -> &[DirectoryConfig] {
+        self.directories.as_deref().unwrap_or(&[])
     }
 }

@@ -65,9 +65,9 @@ fn get_plist_dirs(
     }
 
     // Add user-defined directories from config
-    for cfg_dir in config.get_directories() {
+    for cfg_dir in config.directories() {
         dirs.push(PlistDir {
-            path: PathBuf::from(&cfg_dir.path),
+            path: cfg_dir.path.clone(),
             domain: cfg_dir.domain.to_domain(user_uid),
             for_use_by: ForWhom::User,
             is_system_monitored: false,
@@ -109,8 +109,9 @@ impl DaemonRegistry {
                 if let Ok(content) = std::fs::read(&path) {
                     if let Ok(plist_data) = plist::from_bytes::<Plist>(&content) {
                         // pick source path for duplicates
-                        let found_daemon = map.get(&plist_data.label.clone().unwrap_or_default());
-                        let found_path = found_daemon.and_then(|daemon| daemon.source_path.clone());
+                        let label = plist_data.label.as_deref().unwrap_or("");
+                        let found_path =
+                            map.get(label).and_then(|daemon| daemon.source_path.clone());
                         let source_path = match found_path {
                             Some(_) if path.is_symlink() => path,
                             Some(found_path) if found_path.is_symlink() => found_path,
@@ -152,25 +153,26 @@ impl DaemonRegistry {
                 .join()
                 .map_err(|_| Error::unexpected("domain scan thread panicked"))?;
             if let Some((domain, services)) = joined {
-                for (pid, last_exit_code, name) in services {
+                for service in services {
                     // Update existing daemon or create new one
-                    if let Some(daemon) = map.get_mut(&name) {
-                        daemon.pid = pid;
-                        daemon.last_exit_code = last_exit_code;
+                    if let Some(daemon) = map.get_mut(&service.name) {
+                        daemon.pid = service.pid;
+                        daemon.last_exit_code = service.last_exit_code;
                     } else {
-                        let for_use_by = if name.contains("com.apple") {
+                        let for_use_by = if service.name.contains("com.apple") {
                             ForWhom::Apple
                         } else {
                             ForWhom::ThirdParty
                         };
+                        let name = service.name.clone();
                         let daemon = Daemon {
-                            name: name.clone(),
+                            name: service.name,
                             source_path: None,
                             domain,
                             for_use_by,
                             plist: None,
-                            pid,
-                            last_exit_code,
+                            pid: service.pid,
+                            last_exit_code: service.last_exit_code,
                         };
                         map.insert(name, daemon);
                     }

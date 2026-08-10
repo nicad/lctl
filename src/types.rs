@@ -12,16 +12,11 @@ pub enum Domain {
 
 impl Domain {
     pub fn from_plist(plist: &Plist, uid: u32, default: Domain) -> Self {
-        if let Some(ref session_type) = plist.limit_load_to_session_type {
-            let d = match session_type.as_str() {
-                "Aqua" => Domain::Gui(uid),
-                "Background" | "LoginWindow" => Domain::User(uid),
-                "System" => Domain::System,
-                _ => Domain::Unknown,
-            };
-            if d != Domain::Unknown { d } else { default }
-        } else {
-            default
+        match plist.limit_load_to_session_type.as_deref() {
+            Some("Aqua") => Domain::Gui(uid),
+            Some("Background") | Some("LoginWindow") => Domain::User(uid),
+            Some("System") => Domain::System,
+            _ => default,
         }
     }
 }
@@ -45,6 +40,14 @@ pub enum ForWhom {
     Angel,
 }
 
+/// launchd KeepAlive may be a bool or a dictionary of conditions.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(untagged)]
+pub enum KeepAlive {
+    Boolean(bool),
+    Dictionary(std::collections::HashMap<String, plist::Value>),
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct Plist {
     #[serde(rename = "Label", skip_serializing_if = "Option::is_none")]
@@ -60,7 +63,7 @@ pub struct Plist {
     pub run_at_load: Option<bool>,
 
     #[serde(rename = "KeepAlive", skip_serializing_if = "Option::is_none")]
-    pub keep_alive: Option<bool>,
+    pub keep_alive: Option<KeepAlive>,
 
     #[serde(rename = "WorkingDirectory", skip_serializing_if = "Option::is_none")]
     pub working_directory: Option<String>,

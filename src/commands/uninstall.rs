@@ -6,7 +6,7 @@ use crate::output::{is_verbose, stderr, stdout};
 use crate::parser::{self, ServiceItem};
 use crate::types::Daemon;
 use crate::utils;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 pub(crate) fn run(angel: &Angel, args: &NameArgs) -> Result<()> {
     let daemon = super::resolve_daemon(angel, &args.name, args.exact)?;
@@ -62,7 +62,7 @@ fn bootout_service(daemon: &Daemon) {
     }
 }
 
-fn remove_plist_file(source_path: &PathBuf) -> Result<()> {
+fn remove_plist_file(source_path: &Path) -> Result<()> {
     let source_path_display = source_path.display().to_string();
     if source_path.exists() {
         std::fs::remove_file(source_path)?;

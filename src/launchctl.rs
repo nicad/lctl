@@ -101,9 +101,7 @@ fn launchctl_exec(args: &[&str]) -> Result<LaunchctlOutput> {
         output::stdout::writelogln(styles::prefix(Color::Blue, "CMD"), styles::command(&cmd_str));
     }
 
-    let output = cmd.args(args).output().map_err(|e| {
-        Error::unexpected(format!("Failed to execute launchctl command: {}", e))
-    })?;
+    let output = cmd.args(args).output()?;
 
     Ok(LaunchctlOutput {
         stdout: String::from_utf8_lossy(&output.stdout).to_string(),

@@ -27,19 +27,13 @@ pub type ParsedService<'a> = HashMap<&'a str, ServiceItem<&'a str>>;
 pub fn parse_print_service<'a>(output: &'a str) -> Result<ParsedService<'a>> {
     let (_, lines) =
         many0(parse_line).parse(output).map_err(|e| AngelError::unexpected(e))?;
-    let items = match lines.first() {
-        Some(ServiceItem::KeyValue(_, boxed)) => match boxed.as_ref() {
-            ServiceItem::Dict(inner) => inner,
-            _ => {
-                return Err(AngelError::unexpected("expected root dict"));
-            }
-        },
-        _ => {
-            return Err(AngelError::unexpected("expected root dict"));
-        }
+    let Some(ServiceItem::KeyValue(_, boxed)) = lines.into_iter().next() else {
+        return Err(AngelError::unexpected("expected root dict"));
     };
-    let map: HashMap<_, _> = items
-        .clone()
+    let ServiceItem::Dict(items) = *boxed else {
+        return Err(AngelError::unexpected("expected root dict"));
+    };
+    let map = items
         .into_iter()
         .filter_map(|item| match item {
             ServiceItem::KeyValue(k, v) => Some((k, *v)),
