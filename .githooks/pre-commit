@@ -1,0 +1,10 @@
+#!/bin/sh
+set -e
+
+if ! command -v cargo >/dev/null 2>&1; then
+  echo "pre-commit: cargo not found; skip fmt check" >&2
+  exit 0
+fi
+
+echo "pre-commit: cargo fmt --check --all"
+cargo fmt --check --all

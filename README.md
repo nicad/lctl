@@ -1,24 +1,31 @@
 # Angel
 
-The launchctl macos users deserve.
+The launchctl macOS users deserve.
 
-## Tests
+A friendlier CLI for managing launchd services — install, start/stop/restart, status, logs, and more.
+
+## Install
 
 ```bash
-# unit + GUI e2e
-cargo test
-
-# unit only
-cargo test --test unit
-# or: cargo unit
-
-# e2e GUI only (system tests ignored)
-cargo e2e
-
-# GUI + system e2e (prompts for sudo in your shell, then runs tests)
-sudo -v && cargo e2e-all
+cargo install --path .
 ```
 
-Aliases live in `.cargo/config.toml`. Do **not** `sudo cargo test` — suite must run as your user (GUI / `$HOME`); only individual `angel` / `launchctl` calls are elevated.
+Requires macOS.
 
-Unit tests live in [`tests/unit/`](tests/unit/) (no launchd). E2e lives in [`tests/e2e/`](tests/e2e/) and uses real launchd; default install strategy is symlink. Cleanup uses raw `launchctl` / `rm`, not angel. System install asserts LaunchDaemons symlink + fixture are `root:wheel` mode `644`.
+## Usage
+
+```bash
+angel list
+angel install ./my.service.plist
+angel start my.service
+angel status my.service
+angel logs my.service
+angel stop my.service
+angel uninstall my.service
+```
+
+Run `angel --help` or `angel <command> --help` for options.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, hooks, and tests.
