@@ -24,7 +24,7 @@ pub(crate) fn run(angel: &Angel, args: &NameArgs) -> Result<()> {
 
     bootout_service(daemon);
     remove_plist_file(&source_path)?;
-    remove_db_overrides(daemon)?;
+    clear_disabled_override(daemon);
 
     stdout::success(&format!("Uninstalled {}", daemon.name));
     Ok(())
@@ -62,7 +62,8 @@ fn bootout_service(daemon: &Daemon) {
 
 fn remove_plist_file(source_path: &Path) -> Result<()> {
     let source_path_display = source_path.display().to_string();
-    if source_path.exists() {
+    // Use symlink_metadata, not exists(): exists() is false for dangling symlinks.
+    if source_path.symlink_metadata().is_ok() {
         std::fs::remove_file(source_path)?;
         stdout::success(&format!("Removed plist file: {}", source_path_display));
     } else if is_verbose() {
@@ -71,29 +72,27 @@ fn remove_plist_file(source_path: &Path) -> Result<()> {
     Ok(())
 }
 
-fn remove_db_overrides(daemon: &Daemon) -> Result<()> {
-    let db_overrides_file = PathBuf::from("/var/db/com.apple.xpc.launchd/disabled.plist");
-    if !db_overrides_file.exists() {
-        return Ok(());
-    }
-
-    let bytes = std::fs::read(&db_overrides_file)?;
-    let disabled_services: std::collections::HashMap<String, bool> = plist::from_bytes(&bytes)?;
-
-    if let Some(current_value) = disabled_services.get(&daemon.name) {
-        if !utils::confirm(&format!(
-            "Found `{}` in enable/disable override database with disabled = {}. Remove it?",
-            daemon.name, current_value
-        ))? {
-            return Ok(());
+/// Best-effort: clear disable overrides via launchctl enable. Never fails uninstall.
+fn clear_disabled_override(daemon: &Daemon) {
+    match launchctl::enable(daemon) {
+        Ok(result) if result.success() => {
+            if is_verbose() {
+                stdout::success(&format!("Cleared disable override for {}", daemon.name));
+            }
         }
-        let mut updated_services = disabled_services.clone();
-        updated_services.remove(&daemon.name);
-        let mut writer =
-            std::fs::OpenOptions::new().write(true).truncate(true).open(&db_overrides_file)?;
-        plist::to_writer_xml(&mut writer, &updated_services)?;
-        stdout::success(&format!("Removed service from disabled.plist: {}", daemon.name));
+        Ok(result) => {
+            let detail = if result.stderr.is_empty() {
+                format!("exit code {:?}", result.exit_code)
+            } else {
+                result.stderr
+            };
+            stderr::warn(&format!(
+                "Could not clear disable override for {}: {}",
+                daemon.name, detail
+            ));
+        }
+        Err(e) => {
+            stderr::warn(&format!("Could not clear disable override for {}: {}", daemon.name, e));
+        }
     }
-
-    Ok(())
 }
