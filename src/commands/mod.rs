@@ -14,4 +14,3 @@ pub mod start;
 pub mod status;
 pub mod stop;
 pub mod uninstall;
-pub mod version;

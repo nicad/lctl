@@ -5,7 +5,6 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Config {
     pub directories: Option<Vec<DirectoryConfig>>,
-    pub colors: Option<Colors>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -48,25 +47,12 @@ mod domain_serde {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
-#[allow(dead_code)]
-pub struct Colors {
-    pub background: Option<String>,
-    pub foreground: Option<String>,
-    pub title: Option<String>,
-    pub section_header: Option<String>,
-    pub command: Option<String>,
-    pub argument: Option<String>,
-    pub flag: Option<String>,
-    pub table_border: Option<String>,
-}
-
 impl Config {
     pub fn load() -> Result<Config> {
         // Skip config loading if running as root
         let home = crate::utils::home();
         if home.as_path() == std::path::Path::new("/var/root") {
-            return Ok(Config { directories: None, colors: None });
+            return Ok(Config { directories: None });
         }
 
         // Try config file locations
@@ -98,7 +84,7 @@ impl Config {
         }
 
         // Config file is optional
-        Ok(Config { directories: None, colors: None })
+        Ok(Config { directories: None })
     }
 
     pub fn get_directories(&self) -> Vec<DirectoryConfig> {

@@ -7,8 +7,6 @@ use std::path::PathBuf;
 pub struct Angel {
     pub daemons: DaemonRegistry,
     #[allow(dead_code)]
-    pub config: Config,
-    #[allow(dead_code)]
     pub angel_dir: PathBuf,
     pub euid: Uid,
     pub uid: Uid,
@@ -28,7 +26,7 @@ impl Angel {
             .unwrap_or_else(|| unistd::getuid());
         let daemons = DaemonRegistry::new(&config, uid.as_raw())?;
 
-        Ok(Self { daemons, config, angel_dir, euid, uid })
+        Ok(Self { daemons, angel_dir, euid, uid })
     }
 
     pub fn is_root(&self) -> bool {
@@ -36,7 +34,7 @@ impl Angel {
     }
 }
 
-fn get_angel_dir() -> Result<PathBuf> {
+pub fn get_angel_dir() -> Result<PathBuf> {
     // Check ANGEL_CONFIG_DIR first
     if let Ok(dir) = std::env::var("ANGEL_CONFIG_DIR") {
         return Ok(PathBuf::from(dir));

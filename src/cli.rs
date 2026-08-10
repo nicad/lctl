@@ -1,11 +1,9 @@
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use strum::Display;
 
-const VERSION: &str = "0.1.0";
-
 #[derive(Parser)]
 #[command(name = "angel")]
-#[command(about = "macOS launchd service manager", version = VERSION)]
+#[command(about = "macOS launchd service manager", version = env!("CARGO_PKG_VERSION"))]
 pub struct Cli {
     /// Verbose output
     #[arg(short, long)]
@@ -138,8 +136,6 @@ pub enum Commands {
     Disable(NameArgs),
     /// Print service information (launchctl print wrapper)
     Print(NameArgs),
-    /// Show version
-    Version,
     /// Show helpful reference information
     Cheatsheet {
         #[command(subcommand)]

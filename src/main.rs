@@ -44,10 +44,6 @@ fn run() -> Result<(), error::Error> {
         Commands::Enable(args) => commands::enable::run(&angel, &args),
         Commands::Disable(args) => commands::disable::run(&angel, &args),
         Commands::Print(args) => commands::print::run(&angel, &args),
-        Commands::Version => {
-            commands::version::run();
-            Ok(())
-        }
         Commands::Cheatsheet { subcommand } => {
             commands::cheatsheet::run(&subcommand);
             Ok(())

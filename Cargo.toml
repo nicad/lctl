@@ -20,10 +20,3 @@
     dialoguer   = "*"
     strum       = { version = "*", features = ["derive"] }
     nom         = "8.0.0"
-    pest        = "2"
-    pest_derive = "2"
-
-[dev-dependencies]
-    criterion = "*"
-    rayon     = "*"
-    divan     = "*"
