@@ -41,24 +41,28 @@ pub fn create_table() -> Table {
 }
 
 fn compress_path(path: &Path) -> String {
-    if let Ok(relative) = path.strip_prefix(crate::utils::home()) {
-        return format!("~/{}", relative.display());
+    if let Ok(home) = crate::utils::home() {
+        if let Ok(relative) = path.strip_prefix(home) {
+            return format!("~/{}", relative.display());
+        }
     }
     path.display().to_string()
 }
 
 /// Format a filesystem path like the list command: `~/…`, and with `long`, symlink → target.
 pub fn display_source_path(path: &Path, long: bool) -> String {
-    match path.is_symlink() {
-        true => match long {
-            true => format!(
+    if path.is_symlink() {
+        if long {
+            format!(
                 "  {} → {}",
                 compress_path(path),
-                compress_path(&path.read_link().unwrap_or(PathBuf::from("")))
-            ),
-            false => format!("  {}", compress_path(path)),
-        },
-        false => compress_path(path),
+                compress_path(&path.read_link().unwrap_or_else(|_| PathBuf::from("")))
+            )
+        } else {
+            format!("  {}", compress_path(path))
+        }
+    } else {
+        compress_path(path)
     }
 }
 

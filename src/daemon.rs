@@ -1,5 +1,5 @@
 use crate::config::Config;
-use crate::error::Result;
+use crate::error::{Error, Result};
 use crate::output::stderr;
 use crate::parser;
 use crate::types::{Daemon, Domain, ForWhom, Plist};
@@ -14,7 +14,12 @@ struct PlistDir {
     is_system_monitored: bool,
 }
 
-fn get_plist_dirs(config: &Config, user_uid: u32, angel_dir: &std::path::Path) -> Vec<PlistDir> {
+fn get_plist_dirs(
+    config: &Config,
+    user_uid: u32,
+    angel_dir: &std::path::Path,
+    home: &std::path::Path,
+) -> Vec<PlistDir> {
     let mut dirs = vec![
         PlistDir {
             path: PathBuf::from("/System/Library/LaunchDaemons"),
@@ -48,7 +53,6 @@ fn get_plist_dirs(config: &Config, user_uid: u32, angel_dir: &std::path::Path) -
         },
     ];
 
-    let home = crate::utils::home();
     dirs.push(PlistDir {
         path: home.join("Library/LaunchAgents"),
         domain: Domain::User(user_uid),
@@ -78,8 +82,13 @@ pub struct DaemonRegistry {
 }
 
 impl DaemonRegistry {
-    pub fn new(config: &Config, uid: u32, angel_dir: &std::path::Path) -> Result<Self> {
-        let plist_dirs = get_plist_dirs(config, uid, angel_dir);
+    pub fn new(
+        config: &Config,
+        uid: u32,
+        angel_dir: &std::path::Path,
+        home: &std::path::Path,
+    ) -> Result<Self> {
+        let plist_dirs = get_plist_dirs(config, uid, angel_dir, home);
         let mut map: HashMap<String, Daemon> = HashMap::new();
 
         // Scan plist directories
@@ -139,7 +148,10 @@ impl DaemonRegistry {
             .collect();
 
         for handle in handles {
-            if let Some((domain, services)) = handle.join().unwrap() {
+            let joined = handle
+                .join()
+                .map_err(|_| Error::unexpected("domain scan thread panicked"))?;
+            if let Some((domain, services)) = joined {
                 for (pid, last_exit_code, name) in services {
                     // Update existing daemon or create new one
                     if let Some(daemon) = map.get_mut(&name) {

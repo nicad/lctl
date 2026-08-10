@@ -38,7 +38,7 @@ pub struct DirectoryConfig {
 impl Config {
     pub fn load() -> Result<Config> {
         // Skip config loading if running as root
-        let home = crate::utils::home();
+        let home = crate::utils::home()?;
         if home.as_path() == std::path::Path::new("/var/root") {
             return Ok(Config { directories: None });
         }
@@ -60,7 +60,7 @@ impl Config {
                 // Expand ~ in directory paths
                 if let Some(ref mut dirs) = config.directories {
                     for dir in dirs.iter_mut() {
-                        dir.path = crate::utils::expand_path(&dir.path).display().to_string();
+                        dir.path = crate::utils::expand_path(&dir.path)?.display().to_string();
                     }
                 }
 

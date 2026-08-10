@@ -12,7 +12,7 @@ use nix::unistd::{Gid, Uid, fchownat};
 use std::path::{Path, PathBuf};
 
 pub(crate) fn run(angel: &Angel, args: &InstallArgs) -> Result<()> {
-    let expanded = utils::expand_path(args.path.as_str());
+    let expanded = utils::expand_path(args.path.as_str())?;
     let (source_path, preselected_domain) =
         resolve_source_path(angel, &expanded, args.path.as_str())?;
     let bytes = std::fs::read(&source_path)?;
@@ -32,7 +32,7 @@ pub(crate) fn run(angel: &Angel, args: &InstallArgs) -> Result<()> {
     let selected_domain = get_domain_selection(angel, &plist_data, preselected_domain)?;
 
     // copy/symlink/move
-    let target_path = make_target_path(&selected_domain, &service_name)?;
+    let target_path = make_target_path(angel, &selected_domain, &service_name)?;
     install_file(&args.strategy, &source_path, &target_path, &selected_domain)?;
 
     // kill running service if it is running
@@ -203,10 +203,10 @@ fn get_domain_selection(
     Ok(selected_domain)
 }
 
-fn make_target_path(domain: &Domain, service_name: &str) -> Result<PathBuf> {
+fn make_target_path(angel: &Angel, domain: &Domain, service_name: &str) -> Result<PathBuf> {
     let target_dir = match domain {
         Domain::System => PathBuf::from("/Library/LaunchDaemons"),
-        _ => crate::utils::home().join("Library/LaunchAgents"),
+        _ => angel.home.join("Library/LaunchAgents"),
     };
     let filename = if service_name.ends_with(".plist") {
         service_name.to_string()

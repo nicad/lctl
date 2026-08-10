@@ -4,6 +4,7 @@ use crate::error::Result;
 use crate::output::stdout;
 use crate::styles;
 use crate::types::Domain;
+use std::path::PathBuf;
 
 pub(crate) fn run(subcommand: &CheatsheetSubcommand) -> Result<()> {
     match subcommand {
@@ -12,9 +13,10 @@ pub(crate) fn run(subcommand: &CheatsheetSubcommand) -> Result<()> {
 }
 
 fn print_domains() -> Result<()> {
-    crate::utils::init_home()?;
     let angel_dir = get_angel_dir().unwrap_or_else(|_| {
-        crate::utils::home().join(".config").join("angel")
+        crate::utils::home()
+            .map(|h| h.join(".config").join("angel"))
+            .unwrap_or_else(|_| PathBuf::from(".config/angel"))
     });
     let uid = nix::unistd::getuid().as_raw();
     let dirs = angel_domain_dirs(&angel_dir, uid);
