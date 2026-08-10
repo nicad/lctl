@@ -6,12 +6,7 @@ fn install_symlinks_plist_and_loads_service() {
     let svc = TempServiceBuilder::gui("install").build();
 
     harness::angel()
-        .args([
-            "install",
-            "--domain",
-            "gui",
-            svc.fixture_plist.to_str().unwrap(),
-        ])
+        .args(["install", "--domain", "gui", svc.fixture_plist.to_str().unwrap()])
         .assert()
         .success()
         .stdout(predicates::str::contains(format!("installed {}", svc.label)));
@@ -28,12 +23,7 @@ fn system_install_symlinks_plist_sets_root_ownership_and_loads() {
     let svc = TempServiceBuilder::system("install").build();
 
     harness::angel_sudo()
-        .args([
-            "install",
-            "--domain",
-            "system",
-            svc.fixture_plist.to_str().unwrap(),
-        ])
+        .args(["install", "--domain", "system", svc.fixture_plist.to_str().unwrap()])
         .assert()
         .success()
         .stdout(predicates::str::contains(format!("installed {}", svc.label)));

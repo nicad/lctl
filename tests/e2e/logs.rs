@@ -3,10 +3,7 @@ use crate::harness::{self, TempServiceBuilder};
 #[test]
 fn logs_show_stdio_marker() {
     harness::require_macos();
-    let svc = TempServiceBuilder::gui("logs")
-        .echo_then_sleep()
-        .run_at_load()
-        .build();
+    let svc = TempServiceBuilder::gui("logs").echo_then_sleep().run_at_load().build();
     svc.install_via_angel();
     harness::assert_running(&svc.target);
 
@@ -35,10 +32,7 @@ fn logs_show_stdio_marker() {
 #[ignore = "system domain; run: sudo -v && cargo e2e-all"]
 fn system_logs_show_stdio_marker() {
     harness::require_root_e2e();
-    let svc = TempServiceBuilder::system("logs")
-        .echo_then_sleep()
-        .run_at_load()
-        .build();
+    let svc = TempServiceBuilder::system("logs").echo_then_sleep().run_at_load().build();
     svc.install_via_angel();
     harness::assert_running_sudo(&svc.target);
 

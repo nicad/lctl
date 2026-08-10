@@ -15,10 +15,7 @@ const POLL: Duration = Duration::from_millis(20);
 
 pub fn uid() -> u32 {
     let out = StdCommand::new("id").arg("-u").output().expect("id -u");
-    String::from_utf8_lossy(&out.stdout)
-        .trim()
-        .parse()
-        .expect("parse uid")
+    String::from_utf8_lossy(&out.stdout).trim().parse().expect("parse uid")
 }
 
 pub fn unique_label(cmd: &str) -> String {
@@ -44,10 +41,7 @@ pub fn angel_sudo() -> Command {
 /// (parallel output buries `Password:`). Run `sudo -v && cargo e2e-all` instead.
 pub fn require_root_e2e() {
     require_macos();
-    let status = StdCommand::new("sudo")
-        .args(["-n", "true"])
-        .status()
-        .expect("spawn sudo -n true");
+    let status = StdCommand::new("sudo").args(["-n", "true"]).status().expect("spawn sudo -n true");
     assert!(
         status.success(),
         "system e2e needs sudo without a prompt.\n\
@@ -73,9 +67,7 @@ pub fn daemons_dir() -> PathBuf {
 }
 
 fn dirs_home() -> PathBuf {
-    std::env::var_os("HOME")
-        .map(PathBuf::from)
-        .expect("HOME must be set for e2e tests")
+    std::env::var_os("HOME").map(PathBuf::from).expect("HOME must be set for e2e tests")
 }
 
 pub fn installed_plist_path(label: &str, system: bool) -> PathBuf {
@@ -84,10 +76,7 @@ pub fn installed_plist_path(label: &str, system: bool) -> PathBuf {
 }
 
 pub fn launchctl(args: &[&str]) -> std::process::Output {
-    StdCommand::new("launchctl")
-        .args(args)
-        .output()
-        .expect("spawn launchctl")
+    StdCommand::new("launchctl").args(args).output().expect("spawn launchctl")
 }
 
 pub fn launchctl_sudo(args: &[&str]) -> std::process::Output {
@@ -146,9 +135,7 @@ pub fn is_running(target: &str) -> bool {
 }
 
 pub fn is_running_sudo(target: &str) -> bool {
-    print_service_sudo(target)
-        .and_then(|s| pid_from_print(&s))
-        .is_some()
+    print_service_sudo(target).and_then(|s| pid_from_print(&s)).is_some()
 }
 
 /// Whether `launchctl print gui/$UID` lists the label as disabled.
@@ -238,38 +225,23 @@ pub fn wait_until(mut pred: impl FnMut() -> bool, budget: Duration) -> bool {
 }
 
 pub fn assert_loaded(target: &str) {
-    assert!(
-        wait_until(|| is_loaded(target), FAIL_BUDGET),
-        "expected loaded: {target}"
-    );
+    assert!(wait_until(|| is_loaded(target), FAIL_BUDGET), "expected loaded: {target}");
 }
 
 pub fn assert_not_loaded(target: &str) {
-    assert!(
-        wait_until(|| !is_loaded(target), FAIL_BUDGET),
-        "expected not loaded: {target}"
-    );
+    assert!(wait_until(|| !is_loaded(target), FAIL_BUDGET), "expected not loaded: {target}");
 }
 
 pub fn assert_running(target: &str) {
-    assert!(
-        wait_until(|| is_running(target), FAIL_BUDGET),
-        "expected running: {target}"
-    );
+    assert!(wait_until(|| is_running(target), FAIL_BUDGET), "expected running: {target}");
 }
 
 pub fn assert_not_running(target: &str) {
-    assert!(
-        wait_until(|| !is_running(target), FAIL_BUDGET),
-        "expected not running: {target}"
-    );
+    assert!(wait_until(|| !is_running(target), FAIL_BUDGET), "expected not running: {target}");
 }
 
 pub fn assert_loaded_sudo(target: &str) {
-    assert!(
-        wait_until(|| is_loaded_sudo(target), FAIL_BUDGET),
-        "expected loaded (sudo): {target}"
-    );
+    assert!(wait_until(|| is_loaded_sudo(target), FAIL_BUDGET), "expected loaded (sudo): {target}");
 }
 
 pub fn assert_not_loaded_sudo(target: &str) {
@@ -357,16 +329,8 @@ impl TempServiceBuilder {
     pub fn build(self) -> TempService {
         let label = unique_label(&self.cmd);
         let temp = TempDir::new().expect("tempdir");
-        let stdout_log = if self.with_logs {
-            Some(temp.path().join("stdout.log"))
-        } else {
-            None
-        };
-        let stderr_log = if self.with_logs {
-            Some(temp.path().join("stderr.log"))
-        } else {
-            None
-        };
+        let stdout_log = if self.with_logs { Some(temp.path().join("stdout.log")) } else { None };
+        let stderr_log = if self.with_logs { Some(temp.path().join("stderr.log")) } else { None };
         if let Some(ref p) = stdout_log {
             std::fs::File::create(p).expect("touch stdout log");
         }
@@ -374,11 +338,7 @@ impl TempServiceBuilder {
             std::fs::File::create(p).expect("touch stderr log");
         }
 
-        let session = if self.system {
-            Session::System
-        } else {
-            Session::Aqua
-        };
+        let session = if self.system { Session::System } else { Session::Aqua };
         let fixture_plist = fixtures::write_plist(
             temp.path(),
             &PlistSpec {
@@ -392,11 +352,7 @@ impl TempServiceBuilder {
         );
 
         let installed_plist = installed_plist_path(&label, self.system);
-        let target = if self.system {
-            system_target(&label)
-        } else {
-            gui_target(&label)
-        };
+        let target = if self.system { system_target(&label) } else { gui_target(&label) };
 
         TempService {
             label,
@@ -417,14 +373,9 @@ impl TempService {
         let domain = if self.system { "system" } else { "gui" };
         let mut cmd = if self.system { angel_sudo() } else { angel() };
         // Default strategy is symlink (omit --strategy).
-        cmd.args([
-            "install",
-            "--domain",
-            domain,
-            self.fixture_plist.to_str().unwrap(),
-        ])
-        .assert()
-        .success();
+        cmd.args(["install", "--domain", domain, self.fixture_plist.to_str().unwrap()])
+            .assert()
+            .success();
         assert_installed_symlink(self);
         if self.system {
             assert_system_install_permissions(self);
@@ -436,11 +387,7 @@ impl TempService {
 
     /// Rewrite fixture plist in place (sudo when system — fixture may be root-owned).
     pub fn rewrite_fixture(&self, program: ProgramKind, run_at_load: bool) {
-        let session = if self.system {
-            Session::System
-        } else {
-            Session::Aqua
-        };
+        let session = if self.system { Session::System } else { Session::Aqua };
         let xml = fixtures::render_plist_for_test(&PlistSpec {
             label: &self.label,
             session,
@@ -461,10 +408,8 @@ impl TempService {
         assert!(self.system, "place_system_plist_unloaded is system-only");
         let src = self.fixture_plist.to_str().unwrap();
         let dest = self.installed_plist.to_str().unwrap();
-        let status = StdCommand::new("sudo")
-            .args(["-n", "ln", "-sf", src, dest])
-            .status()
-            .expect("sudo ln");
+        let status =
+            StdCommand::new("sudo").args(["-n", "ln", "-sf", src, dest]).status().expect("sudo ln");
         assert!(status.success(), "sudo ln -sf failed");
         let status = StdCommand::new("sudo")
             .args(["-n", "chown", "-h", "root:wheel", dest])
@@ -529,9 +474,8 @@ impl TempService {
         let Some(path) = self.temp.path().to_str() else {
             return;
         };
-        let _ = StdCommand::new("sudo")
-            .args(["-n", "chown", "-R", &uid().to_string(), path])
-            .status();
+        let _ =
+            StdCommand::new("sudo").args(["-n", "chown", "-R", &uid().to_string(), path]).status();
     }
 
     pub fn cleanup(&mut self) {
@@ -572,25 +516,14 @@ pub fn require_macos() {
 /// Default install strategy: LaunchAgents/Daemons entry is a symlink to the fixture.
 pub fn assert_installed_symlink(svc: &TempService) {
     let meta = std::fs::symlink_metadata(&svc.installed_plist).unwrap_or_else(|e| {
-        panic!(
-            "installed plist metadata {}: {e}",
-            svc.installed_plist.display()
-        )
+        panic!("installed plist metadata {}: {e}", svc.installed_plist.display())
     });
-    assert!(
-        meta.file_type().is_symlink(),
-        "expected symlink at {}",
-        svc.installed_plist.display()
-    );
+    assert!(meta.file_type().is_symlink(), "expected symlink at {}", svc.installed_plist.display());
     let link = std::fs::read_link(&svc.installed_plist).expect("read_link installed plist");
-    let link_canon = std::fs::canonicalize(&link).unwrap_or_else(|e| {
-        panic!("canonicalize symlink target {}: {e}", link.display())
-    });
+    let link_canon = std::fs::canonicalize(&link)
+        .unwrap_or_else(|e| panic!("canonicalize symlink target {}: {e}", link.display()));
     let fixture_canon = std::fs::canonicalize(&svc.fixture_plist).expect("canonicalize fixture");
-    assert_eq!(
-        link_canon, fixture_canon,
-        "installed symlink should point at fixture plist"
-    );
+    assert_eq!(link_canon, fixture_canon, "installed symlink should point at fixture plist");
 }
 
 /// System symlink install: root:wheel on symlink + fixture, fixture mode 644.
@@ -598,10 +531,7 @@ pub fn assert_system_install_permissions(svc: &TempService) {
     assert!(svc.system, "assert_system_install_permissions is system-only");
 
     let link_meta = std::fs::symlink_metadata(&svc.installed_plist).expect("symlink metadata");
-    assert!(
-        link_meta.file_type().is_symlink(),
-        "LaunchDaemons entry should be a symlink"
-    );
+    assert!(link_meta.file_type().is_symlink(), "LaunchDaemons entry should be a symlink");
     assert_eq!(link_meta.uid(), 0, "symlink uid should be root (0)");
     assert_eq!(link_meta.gid(), 0, "symlink gid should be wheel (0)");
 

@@ -12,10 +12,7 @@ com.example.svc = {
     let parsed = parse_print_service(output).unwrap();
     assert_eq!(parsed.get("state"), Some(&ServiceItem::Str("running")));
     assert_eq!(parsed.get("pid"), Some(&ServiceItem::Str("4242")));
-    assert_eq!(
-        parsed.get("path"),
-        Some(&ServiceItem::Str("/tmp/com.example.svc.plist"))
-    );
+    assert_eq!(parsed.get("path"), Some(&ServiceItem::Str("/tmp/com.example.svc.plist")));
 }
 
 #[test]
@@ -34,10 +31,7 @@ com.example.svc = {
     let parsed = parse_print_service(output).unwrap();
     match parsed.get("arguments") {
         Some(ServiceItem::Array(items)) => {
-            assert_eq!(
-                items,
-                &vec![ServiceItem::Str("/usr/bin/foo"), ServiceItem::Str("--flag")]
-            );
+            assert_eq!(items, &vec![ServiceItem::Str("/usr/bin/foo"), ServiceItem::Str("--flag")]);
         }
         other => panic!("expected arguments array, got {other:?}"),
     }

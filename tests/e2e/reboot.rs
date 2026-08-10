@@ -29,10 +29,7 @@ fn reboot_reloads_from_disk() {
         after.contains("/bin/sleep"),
         "reboot should reload symlink target; expected /bin/sleep in launchctl print, got:\n{after}"
     );
-    assert!(
-        !after.contains("/usr/bin/true"),
-        "old program should be gone after reboot"
-    );
+    assert!(!after.contains("/usr/bin/true"), "old program should be gone after reboot");
 }
 
 #[test]
@@ -64,8 +61,5 @@ fn system_reboot_reloads_from_disk() {
         after.contains("/bin/sleep"),
         "reboot should reload symlink target; expected /bin/sleep in launchctl print, got:\n{after}"
     );
-    assert!(
-        !after.contains("/usr/bin/true"),
-        "old program should be gone after reboot"
-    );
+    assert!(!after.contains("/usr/bin/true"), "old program should be gone after reboot");
 }

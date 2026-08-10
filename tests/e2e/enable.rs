@@ -6,10 +6,7 @@ fn enable_clears_disabled_domain_entry() {
     let mut svc = TempServiceBuilder::gui("enable").sleep().build();
     svc.install_via_angel();
 
-    harness::angel()
-        .args(["disable", "-e", &svc.label])
-        .assert()
-        .success();
+    harness::angel().args(["disable", "-e", &svc.label]).assert().success();
     svc.mark_disabled();
     harness::assert_disabled(&svc.label);
 
@@ -22,10 +19,7 @@ fn enable_clears_disabled_domain_entry() {
 
     harness::assert_enabled(&svc.label);
 
-    harness::angel()
-        .args(["start", "-e", &svc.label])
-        .assert()
-        .success();
+    harness::angel().args(["start", "-e", &svc.label]).assert().success();
     harness::assert_running(&svc.target);
 }
 
@@ -36,10 +30,7 @@ fn system_enable_clears_disabled_domain_entry() {
     let mut svc = TempServiceBuilder::system("enable").sleep().build();
     svc.install_via_angel();
 
-    harness::angel_sudo()
-        .args(["disable", "-e", &svc.label])
-        .assert()
-        .success();
+    harness::angel_sudo().args(["disable", "-e", &svc.label]).assert().success();
     svc.mark_disabled();
     harness::assert_disabled_system(&svc.label);
 
@@ -52,9 +43,6 @@ fn system_enable_clears_disabled_domain_entry() {
 
     harness::assert_enabled_system(&svc.label);
 
-    harness::angel_sudo()
-        .args(["start", "-e", &svc.label])
-        .assert()
-        .success();
+    harness::angel_sudo().args(["start", "-e", &svc.label]).assert().success();
     harness::assert_running_sudo(&svc.target);
 }

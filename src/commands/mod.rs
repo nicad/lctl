@@ -23,11 +23,7 @@ use crate::types::Daemon;
 use crate::utils;
 
 /// Resolve a daemon by name (prompts when multiple fuzzy matches).
-pub(crate) fn resolve_daemon<'a>(
-    angel: &'a Angel,
-    query: &str,
-    exact: bool,
-) -> Result<&'a Daemon> {
+pub(crate) fn resolve_daemon<'a>(angel: &'a Angel, query: &str, exact: bool) -> Result<&'a Daemon> {
     utils::pick_daemon(angel.daemons.get_matches(query, exact), query)
 }
 

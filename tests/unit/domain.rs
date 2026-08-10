@@ -8,10 +8,7 @@ fn plist_session(session: &str) -> Plist {
 #[test]
 fn domain_from_plist_session_types() {
     let uid = 501;
-    assert_eq!(
-        Domain::from_plist(&plist_session("Aqua"), uid, Domain::System),
-        Domain::Gui(uid)
-    );
+    assert_eq!(Domain::from_plist(&plist_session("Aqua"), uid, Domain::System), Domain::Gui(uid));
     assert_eq!(
         Domain::from_plist(&plist_session("Background"), uid, Domain::System),
         Domain::User(uid)
@@ -20,10 +17,7 @@ fn domain_from_plist_session_types() {
         Domain::from_plist(&plist_session("LoginWindow"), uid, Domain::System),
         Domain::User(uid)
     );
-    assert_eq!(
-        Domain::from_plist(&plist_session("System"), uid, Domain::Gui(uid)),
-        Domain::System
-    );
+    assert_eq!(Domain::from_plist(&plist_session("System"), uid, Domain::Gui(uid)), Domain::System);
 }
 
 #[test]

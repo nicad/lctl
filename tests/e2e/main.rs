@@ -3,8 +3,8 @@
 mod fixtures;
 mod harness;
 
-mod bootstrap;
 mod bootout;
+mod bootstrap;
 mod disable;
 mod enable;
 mod install;

@@ -31,8 +31,7 @@ pub fn parse_domain_output(input: &[u8]) -> Result<Vec<DomainService>> {
         terminated(take_until1(services_marker), tag(services_marker)),
         many_till(parse_service_line, closing_brace_parser),
     );
-    let (_, (_, (services, _))) =
-        parser.parse(input).map_err(|e| Error::unexpected(e))?;
+    let (_, (_, (services, _))) = parser.parse(input).map_err(|e| Error::unexpected(e))?;
     Ok(services)
 }
 

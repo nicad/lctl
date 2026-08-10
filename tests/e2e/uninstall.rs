@@ -13,10 +13,7 @@ fn uninstall_removes_plist_and_unloads() {
         .stdout(predicates::str::contains("Uninstalled"));
 
     harness::assert_not_loaded(&svc.target);
-    assert!(
-        !svc.installed_plist.exists(),
-        "installed plist should be removed"
-    );
+    assert!(!svc.installed_plist.exists(), "installed plist should be removed");
 }
 
 #[test]

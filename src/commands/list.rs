@@ -42,10 +42,7 @@ fn sort_daemons(sort_by: SortBy, daemons: &mut Vec<&crate::types::Daemon>) {
         }
         SortBy::Domain => {
             daemons.sort_by(|a, b| {
-                a.domain
-                    .to_string()
-                    .cmp(&b.domain.to_string())
-                    .then_with(|| a.name.cmp(&b.name))
+                a.domain.to_string().cmp(&b.domain.to_string()).then_with(|| a.name.cmp(&b.name))
             });
         }
         SortBy::Parent => {

@@ -8,10 +8,8 @@ fn plist_dumps_installed_file() {
 
     let on_disk = std::fs::read_to_string(&svc.installed_plist).expect("read installed plist");
 
-    let output = harness::angel()
-        .args(["plist", "-e", &svc.label])
-        .output()
-        .expect("run angel plist");
+    let output =
+        harness::angel().args(["plist", "-e", &svc.label]).output().expect("run angel plist");
     assert!(output.status.success(), "plist command failed");
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains(&svc.label));
@@ -28,10 +26,8 @@ fn system_plist_dumps_installed_file() {
 
     let on_disk = std::fs::read_to_string(&svc.installed_plist).expect("read installed plist");
 
-    let output = harness::angel_sudo()
-        .args(["plist", "-e", &svc.label])
-        .output()
-        .expect("run angel plist");
+    let output =
+        harness::angel_sudo().args(["plist", "-e", &svc.label]).output().expect("run angel plist");
     assert!(output.status.success(), "plist command failed");
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains(&svc.label));
