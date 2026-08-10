@@ -8,7 +8,7 @@ use crate::styles;
 use comfy_table::Table;
 use crossterm::style::Color;
 
-pub fn run(angel: &Angel, args: &StatusArgs) -> Result<()> {
+pub(crate) fn run(angel: &Angel, args: &StatusArgs) -> Result<()> {
     let daemon = super::resolve_daemon(angel, &args.target.name, args.target.exact)?;
 
     // Get launchctl result once (reuse for debug and parsing)

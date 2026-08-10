@@ -11,7 +11,7 @@ use nix::sys::stat::{FchmodatFlags, Mode, fchmodat};
 use nix::unistd::{Gid, Uid, fchownat};
 use std::path::{Path, PathBuf};
 
-pub fn run(angel: &Angel, args: &InstallArgs) -> Result<()> {
+pub(crate) fn run(angel: &Angel, args: &InstallArgs) -> Result<()> {
     let expanded = utils::expand_path(args.path.as_str());
     let (source_path, preselected_domain) =
         resolve_source_path(angel, &expanded, args.path.as_str())?;

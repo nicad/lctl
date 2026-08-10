@@ -4,7 +4,7 @@ use crate::error::Result;
 use crate::launchctl;
 use crate::output::stdout;
 
-pub fn run(angel: &Angel, args: &StopArgs) -> Result<()> {
+pub(crate) fn run(angel: &Angel, args: &StopArgs) -> Result<()> {
     let daemon = super::resolve_daemon(angel, &args.target.name, args.target.exact)?;
     let result = launchctl::kill(daemon, &args.signal.to_string())?;
     stdout::write(&result.stdout);

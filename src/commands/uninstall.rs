@@ -8,7 +8,7 @@ use crate::types::Daemon;
 use crate::utils;
 use std::path::PathBuf;
 
-pub fn run(angel: &Angel, args: &NameArgs) -> Result<()> {
+pub(crate) fn run(angel: &Angel, args: &NameArgs) -> Result<()> {
     let daemon = super::resolve_daemon(angel, &args.name, args.exact)?;
 
     let source_path = get_source_path(daemon)?;

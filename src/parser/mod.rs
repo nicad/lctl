@@ -1,5 +1,5 @@
-pub mod domain;
-pub mod service;
+pub(crate) mod domain;
+pub(crate) mod service;
 
 pub use domain::parse_print_domain;
 pub use service::{ParsedService, ServiceItem, parse_print_service};

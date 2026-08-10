@@ -1,6 +1,6 @@
 fn main() {
     if let Err(e) = angel::run() {
-        angel::output::stderr::error(&e.to_string());
+        angel::print_error(&e);
         std::process::exit(1);
     }
 }

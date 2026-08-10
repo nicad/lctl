@@ -6,7 +6,7 @@ use crate::output::stdout;
 use crate::styles;
 use crate::types::ForWhom;
 
-pub fn run(angel: &Angel, args: &ListArgs) -> Result<()> {
+pub(crate) fn run(angel: &Angel, args: &ListArgs) -> Result<()> {
     let query = args.pattern.as_deref().unwrap_or("");
     let mut matching_daemons = angel.daemons.get_matches(query, args.exact);
     sort_daemons(args.sort_by, &mut matching_daemons);

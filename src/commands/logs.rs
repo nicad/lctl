@@ -10,7 +10,7 @@ use std::io::BufReader;
 use std::path::Path;
 use std::process::Command;
 
-pub fn run(angel: &Angel, args: &LogsArgs) -> Result<()> {
+pub(crate) fn run(angel: &Angel, args: &LogsArgs) -> Result<()> {
     let daemon = super::resolve_daemon(angel, &args.target.name, args.target.exact)?;
 
     stdout::writeln(&styles::prefix(Color::Blue, &daemon.name));

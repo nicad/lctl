@@ -3,6 +3,6 @@ use crate::cli::NameArgs;
 use crate::error::Result;
 use crate::launchctl;
 
-pub fn run(angel: &Angel, args: &NameArgs) -> Result<()> {
+pub(crate) fn run(angel: &Angel, args: &NameArgs) -> Result<()> {
     super::run_launchctl(angel, args, launchctl::bootout, "boot out", "booted out")
 }

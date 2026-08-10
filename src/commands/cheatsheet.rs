@@ -5,7 +5,7 @@ use crate::output::stdout;
 use crate::styles;
 use crate::types::Domain;
 
-pub fn run(subcommand: &CheatsheetSubcommand) -> Result<()> {
+pub(crate) fn run(subcommand: &CheatsheetSubcommand) -> Result<()> {
     match subcommand {
         CheatsheetSubcommand::Domains => print_domains(),
     }
