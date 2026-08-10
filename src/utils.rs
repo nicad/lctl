@@ -1,21 +1,36 @@
 use crate::error::{Error, Result, err_msg};
 use crate::styles;
 use crate::types::Daemon;
+use nix::unistd::{Uid, User};
 use std::path::PathBuf;
 use std::sync::OnceLock;
 
 static HOME: OnceLock<PathBuf> = OnceLock::new();
 
-/// Home directory from `$HOME`. Lazy-initialized; returns Config error if unset.
+/// Home directory for the invoking user. Lazy-initialized.
+///
+/// Under `sudo`, uses the home of `SUDO_UID` from passwd (not `$HOME`, which is often
+/// `/var/root`). Otherwise uses `$HOME`.
 pub fn home() -> Result<&'static PathBuf> {
     if let Some(path) = HOME.get() {
         return Ok(path);
     }
-    let path = std::env::var("HOME")
-        .map(PathBuf::from)
-        .map_err(|_| Error::Config(err_msg!("HOME environment variable not set")))?;
+    let path = resolve_home()?;
     let _ = HOME.set(path);
     HOME.get().ok_or_else(|| Error::Config(err_msg!("HOME failed to initialize")))
+}
+
+fn resolve_home() -> Result<PathBuf> {
+    if let Ok(sudo_uid) = std::env::var("SUDO_UID") {
+        if let Ok(uid) = sudo_uid.parse::<u32>() {
+            if let Ok(Some(user)) = User::from_uid(Uid::from_raw(uid)) {
+                return Ok(user.dir);
+            }
+        }
+    }
+    std::env::var("HOME")
+        .map(PathBuf::from)
+        .map_err(|_| Error::Config(err_msg!("HOME environment variable not set")))
 }
 
 /// Expands a leading `~` or `~/…` using [`home`]; other paths pass through unchanged.
