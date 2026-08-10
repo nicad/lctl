@@ -37,7 +37,7 @@ pub struct ListArgs {
     #[arg(short = 'd', long = "dynamic")]
     pub show_dynamic: bool,
     /// Show idle daemons (have no pid)
-    #[arg(short = 'i', long = "idle", default_value = "false")]
+    #[arg(short = 'i', long = "idle")]
     pub show_idle: bool,
     /// Field to sort by
     #[arg(short = 's', long = "sort", default_value = "name")]
@@ -68,11 +68,8 @@ pub enum Signal {
 
 #[derive(Args)]
 pub struct StartArgs {
-    /// Service name
-    pub name: String,
-    /// Exact match
-    #[arg(short, long)]
-    pub exact: bool,
+    #[command(flatten)]
+    pub target: NameArgs,
     /// Kill existing instance before starting
     #[arg(short, long)]
     pub kill: bool,
@@ -80,26 +77,17 @@ pub struct StartArgs {
 
 #[derive(Args)]
 pub struct StopArgs {
-    /// Service name
-    pub name: String,
-    /// Exact match
-    #[arg(short, long)]
-    pub exact: bool,
+    #[command(flatten)]
+    pub target: NameArgs,
     /// Signal to send
     #[arg(short, long, default_value = "sigterm")]
     pub signal: Signal,
-    /// Force kill (equivalent to --signal sigkill)
-    #[arg(short, long)]
-    pub force: bool,
 }
 
 #[derive(Args)]
 pub struct StatusArgs {
-    /// Service name
-    pub name: String,
-    /// Exact match
-    #[arg(short, long)]
-    pub exact: bool,
+    #[command(flatten)]
+    pub target: NameArgs,
     /// Debug output (show raw launchctl output and parsed data)
     #[arg(short = 'd', long)]
     pub debug: bool,
@@ -107,11 +95,8 @@ pub struct StatusArgs {
 
 #[derive(Args)]
 pub struct LogsArgs {
-    /// Service name
-    pub name: String,
-    /// Exact match
-    #[arg(short, long)]
-    pub exact: bool,
+    #[command(flatten)]
+    pub target: NameArgs,
     /// Time frame for logs (e.g., 5m, 1h, 24h). Default: 5m
     #[arg(short = 't', long = "time", default_value = "5m")]
     pub time_frame: String,

@@ -5,7 +5,7 @@ use crate::launchctl;
 use crate::output::stdout;
 
 pub fn run(angel: &Angel, args: &StopArgs) -> Result<()> {
-    let daemon = angel.daemons.get_match(&args.name, args.exact)?;
+    let daemon = angel.daemons.get_match(&args.target.name, args.target.exact)?;
     let result = launchctl::kill(daemon, &args.signal.to_string())?;
     stdout::write(&result.stdout);
     result.require_ok(&format!("stop {}", daemon.name))?;

@@ -9,7 +9,7 @@ use comfy_table::Table;
 use crossterm::style::Color;
 
 pub fn run(angel: &Angel, args: &StatusArgs) -> Result<()> {
-    let daemon = angel.daemons.get_match(&args.name, args.exact)?;
+    let daemon = angel.daemons.get_match(&args.target.name, args.target.exact)?;
 
     // Get launchctl result once (reuse for debug and parsing)
     let result = launchctl::print(daemon)?;

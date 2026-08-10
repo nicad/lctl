@@ -10,7 +10,7 @@ use std::path::Path;
 use std::process::Command;
 
 pub fn run(angel: &Angel, args: &LogsArgs) -> Result<()> {
-    let daemon = angel.daemons.get_match(&args.name, args.exact)?;
+    let daemon = angel.daemons.get_match(&args.target.name, args.target.exact)?;
 
     stdout::writeln(&styles::prefix(Color::Blue, &daemon.name));
     stdout::writeln("");
