@@ -3,7 +3,6 @@ use crate::output;
 use crate::styles;
 use crate::types::{Daemon, Domain};
 use crossterm::style::Color;
-use nix::unistd;
 use std::process::Command;
 
 #[derive(Debug)]
@@ -49,17 +48,13 @@ impl LaunchctlOutput {
     }
 }
 
-fn is_root() -> bool {
-    unistd::geteuid().is_root()
-}
-
 pub fn bootstrap(daemon: &Daemon) -> Result<LaunchctlOutput> {
     let path = daemon
         .require_source_path()?
         .to_str()
         .ok_or_else(|| Error::InvalidInput(err_msg!("Invalid source path encoding")))?;
     let domain = daemon.domain.to_string();
-    let res = launchctl_exec(vec!["bootstrap", &domain, path]);
+    let res = launchctl_exec(&["bootstrap", &domain, path]);
     if res.as_ref().is_ok_and(|result| result.stdout.contains("Input/output error")) {
         if matches!(daemon.domain, Domain::User(_)) {
             output::stdout::hint(
@@ -71,47 +66,42 @@ pub fn bootstrap(daemon: &Daemon) -> Result<LaunchctlOutput> {
 }
 
 pub fn bootout(daemon: &Daemon) -> Result<LaunchctlOutput> {
-    launchctl_exec(vec!["bootout", &daemon.service_target()])
+    launchctl_exec(&["bootout", &daemon.service_target()])
 }
 
 pub fn enable(daemon: &Daemon) -> Result<LaunchctlOutput> {
-    launchctl_exec(vec!["enable", &daemon.service_target()])
+    launchctl_exec(&["enable", &daemon.service_target()])
 }
 
 pub fn disable(daemon: &Daemon) -> Result<LaunchctlOutput> {
-    launchctl_exec(vec!["disable", &daemon.service_target()])
+    launchctl_exec(&["disable", &daemon.service_target()])
 }
 
 pub fn kickstart(daemon: &Daemon) -> Result<LaunchctlOutput> {
-    launchctl_exec(vec!["kickstart", &daemon.service_target()])
+    launchctl_exec(&["kickstart", &daemon.service_target()])
 }
 
 pub fn kickstart_kill(daemon: &Daemon) -> Result<LaunchctlOutput> {
-    launchctl_exec(vec!["kickstart", "-k", &daemon.service_target()])
+    launchctl_exec(&["kickstart", "-k", &daemon.service_target()])
 }
 
 pub fn kill(daemon: &Daemon, signal: &str) -> Result<LaunchctlOutput> {
-    launchctl_exec(vec!["kill", signal, &daemon.service_target()])
+    launchctl_exec(&["kill", signal, &daemon.service_target()])
 }
 
 pub fn print(target: &str) -> Result<LaunchctlOutput> {
-    launchctl_exec(vec!["print", target])
+    launchctl_exec(&["print", target])
 }
 
-fn launchctl_exec(mut args: Vec<&str>) -> Result<LaunchctlOutput> {
-    let mut cmd = if is_root() {
-        args.insert(0, "launchctl");
-        Command::new("sudo")
-    } else {
-        Command::new("launchctl")
-    };
+fn launchctl_exec(args: &[&str]) -> Result<LaunchctlOutput> {
+    let mut cmd = Command::new("launchctl");
 
     if output::is_verbose() {
-        let cmd_str = format!("{} {}", cmd.get_program().to_string_lossy(), args.join(" "));
+        let cmd_str = format!("launchctl {}", args.join(" "));
         output::stdout::writelogln(styles::prefix(Color::Blue, "CMD"), styles::command(&cmd_str));
     }
 
-    let output = cmd.args(&args).output().map_err(|e| {
+    let output = cmd.args(args).output().map_err(|e| {
         Error::unexpected(format!("Failed to execute launchctl command: {}", e))
     })?;
 
