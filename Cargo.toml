@@ -3,6 +3,12 @@
     version     = "0.1.0"
     edition     = "2024"
     default-run = "angel"
+    description = "The launchctl MacOS users deserve"
+    keywords    = ["macos", "launchctl"]
+    categories  = ["command-line-utilities", "os"]
+
+    [package.metadata.docs.rs]
+        targets = ["aarch64-apple-darwin", "x86_64-apple-darwin"]
 
 [dependencies]
     clap        = { version = "4", features = ["derive"] }
