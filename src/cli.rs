@@ -169,7 +169,7 @@ pub enum Commands {
     /// List services
     #[command(alias = "ls")]
     List(ListArgs),
-    /// print a service's plist
+    /// Print a service's plist
     Plist(NameArgs),
     /// Enable a service
     Enable(NameArgs),
