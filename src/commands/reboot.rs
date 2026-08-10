@@ -5,7 +5,7 @@ use crate::launchctl;
 use crate::output::stdout;
 
 pub fn run(angel: &Angel, args: &NameArgs) -> Result<()> {
-    let daemon = angel.daemons.get_match(&args.name, args.exact)?;
+    let daemon = super::resolve_daemon(angel, &args.name, args.exact)?;
     daemon.require_source_path()?;
 
     let out = launchctl::bootout(daemon)?;

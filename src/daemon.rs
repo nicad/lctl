@@ -1,8 +1,7 @@
 use crate::config::Config;
-use crate::error::{Error, Result, err_msg};
+use crate::error::Result;
 use crate::output::stderr;
 use crate::parser;
-use crate::styles;
 use crate::types::{Daemon, Domain, ForWhom, Plist};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -170,67 +169,26 @@ impl DaemonRegistry {
         Ok(Self { map })
     }
 
-    pub fn get_match(&self, query: &str, exact: bool) -> Result<&Daemon> {
-        self.select_match(self.find_matches(query, exact)?, query)
+    pub fn get_matches(&self, query: &str, exact: bool) -> Vec<&Daemon> {
+        if exact {
+            return self
+                .map
+                .values()
+                .filter(|daemon| daemon.name.eq_ignore_ascii_case(query))
+                .collect();
+        }
+        let query_lower = query.to_ascii_lowercase();
+        self.map
+            .values()
+            .filter(|daemon| daemon.name.to_ascii_lowercase().contains(&query_lower))
+            .collect()
     }
 
-    /// Fuzzy match restricted to plists loaded from angel-managed dirs.
-    pub fn get_angel_match(&self, query: &str) -> Result<&Daemon> {
-        let matches = self
-            .find_matches(query, false)?
+    /// Fuzzy matches restricted to plists loaded from angel-managed dirs.
+    pub fn get_angel_matches(&self, query: &str) -> Vec<&Daemon> {
+        self.get_matches(query, false)
             .into_iter()
             .filter(|d| d.for_use_by == ForWhom::Angel)
-            .collect();
-        self.select_match(matches, query)
-    }
-
-    pub fn get_matches(&self, query: &str, exact: bool) -> Result<Vec<&Daemon>> {
-        self.find_matches(query, exact)
-    }
-
-    fn select_match<'a>(&self, matches: Vec<&'a Daemon>, query: &str) -> Result<&'a Daemon> {
-        match matches.len() {
-            0 => Err(Error::NotFound(err_msg!(query))),
-            1 => Ok(matches[0]),
-            _ => {
-                let items: Vec<String> = matches
-                    .iter()
-                    .map(|daemon| {
-                        format!(
-                            "{:<19}{}  {}",
-                            styles::color_domain(&daemon.domain),
-                            daemon.name,
-                            styles::command(&styles::display_path(daemon, false))
-                        )
-                    })
-                    .collect();
-
-                let selection = dialoguer::Select::new()
-                    .with_prompt(format!(
-                        "Multiple daemons found matching '{}'. Select one:",
-                        query
-                    ))
-                    .items(&items)
-                    .default(0)
-                    .interact()?;
-
-                Ok(matches[selection])
-            }
-        }
-    }
-
-    fn find_matches(&self, query: &str, exact: bool) -> Result<Vec<&Daemon>> {
-        let query_lower = if exact { String::new() } else { query.to_ascii_lowercase() };
-        Ok(self
-            .map
-            .values()
-            .filter(|daemon| {
-                if exact {
-                    daemon.name.eq_ignore_ascii_case(query)
-                } else {
-                    daemon.name.to_ascii_lowercase().contains(&query_lower)
-                }
-            })
-            .collect())
+            .collect()
     }
 }

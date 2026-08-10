@@ -67,7 +67,7 @@ fn resolve_source_path(
         expanded.to_path_buf()
     } else {
         let query = query.strip_suffix(".plist").unwrap_or(query);
-        let daemon = angel.daemons.get_angel_match(query)?;
+        let daemon = super::resolve_angel_daemon(angel, query)?;
         daemon.require_source_path()?.to_path_buf()
     };
 
@@ -96,7 +96,7 @@ fn infer_domain_from_angel_path(angel: &Angel, resolved: &Path) -> Option<Domain
 }
 
 fn kill_running_service(angel: &Angel, service_name: &str) -> Result<()> {
-    let daemon = match angel.daemons.get_match(service_name, true) {
+    let daemon = match super::resolve_daemon(angel, service_name, true) {
         Ok(daemon) => match daemon.pid {
             Some(_) => daemon,
             None => return Ok(()), // not running. proceed.

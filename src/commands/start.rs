@@ -5,7 +5,7 @@ use crate::launchctl;
 use crate::output::stdout;
 
 pub fn run(angel: &Angel, args: &StartArgs) -> Result<()> {
-    let daemon = angel.daemons.get_match(&args.target.name, args.target.exact)?;
+    let daemon = super::resolve_daemon(angel, &args.target.name, args.target.exact)?;
     let result = match args.kill {
         true => launchctl::kickstart_kill(daemon)?,
         false => launchctl::kickstart(daemon)?,

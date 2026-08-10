@@ -21,6 +21,21 @@ use crate::error::Result;
 use crate::launchctl::LaunchctlOutput;
 use crate::output::stdout;
 use crate::types::Daemon;
+use crate::utils;
+
+/// Resolve a daemon by name (prompts when multiple fuzzy matches).
+pub(crate) fn resolve_daemon<'a>(
+    angel: &'a Angel,
+    query: &str,
+    exact: bool,
+) -> Result<&'a Daemon> {
+    utils::pick_daemon(angel.daemons.get_matches(query, exact), query)
+}
+
+/// Resolve among angel-managed daemons only (prompts when multiple matches).
+pub(crate) fn resolve_angel_daemon<'a>(angel: &'a Angel, query: &str) -> Result<&'a Daemon> {
+    utils::pick_daemon(angel.daemons.get_angel_matches(query), query)
+}
 
 /// Resolve a named daemon, run a launchctl op, print stdout, require success.
 pub(crate) fn run_launchctl(
@@ -30,7 +45,7 @@ pub(crate) fn run_launchctl(
     action: &str,
     done: &str,
 ) -> Result<()> {
-    let daemon = angel.daemons.get_match(&args.name, args.exact)?;
+    let daemon = resolve_daemon(angel, &args.name, args.exact)?;
     let result = op(daemon)?;
     stdout::write(&result.stdout);
     result.require_ok(&format!("{action} {}", daemon.name))?;
