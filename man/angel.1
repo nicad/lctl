@@ -1,0 +1,335 @@
+.\" Copyright (c) 2026 angel contributors
+.Dd August 9, 2026
+.Dt ANGEL 1
+.Os
+.Sh NAME
+.Nm angel
+.Nd friendlier CLI for managing macOS launchd services
+.Sh SYNOPSIS
+.Nm
+.Op Fl v | Fl \-verbose
+.Op Fl y | Fl \-yes
+.Ar command
+.Op Ar options
+.Op Ar args
+.Sh DESCRIPTION
+.Nm
+is a macOS launchd service manager.
+It wraps common
+.Xr launchctl 1
+workflows with clearer commands for installing, starting, stopping,
+restarting, listing, inspecting, and logging services.
+.Pp
+Service names may be matched fuzzily unless
+.Fl e Ns / Ns Fl \-exact
+is given.
+.Sh GLOBAL OPTIONS
+.Bl -tag -width Ds
+.It Fl v , Fl \-verbose
+Verbose output.
+.It Fl y , Fl \-yes
+Assume yes for confirmation prompts.
+.It Fl h , Fl \-help
+Print help.
+.It Fl V , Fl \-version
+Print version.
+.El
+.Sh COMMANDS
+.Ss install
+Install a service from a plist file (or resolve an existing daemon / bare
+.Pa .plist
+filename).
+.Pp
+.Nm
+.Cm install
+.Op Fl s | Fl \-strategy Ar strategy
+.Op Fl \-domain Ar domain
+.Ar path
+.Bl -tag -width Ds
+.It Fl s , Fl \-strategy Ar strategy
+How to place the plist:
+.Ar copy ,
+.Ar symlink
+(default), or
+.Ar move .
+.It Fl \-domain Ar domain
+Target domain:
+.Ar gui ,
+.Ar user ,
+or
+.Ar system .
+Skips interactive domain selection.
+.El
+.Ss uninstall
+Uninstall a service.
+.Pp
+.Nm
+.Cm uninstall
+.Op Fl e | Fl \-exact
+.Ar name
+.Ss start
+Start a service.
+Alias:
+.Cm kickstart .
+.Pp
+.Nm
+.Cm start
+.Op Fl e | Fl \-exact
+.Op Fl k | Fl \-kill
+.Ar name
+.Bl -tag -width Ds
+.It Fl k , Fl \-kill
+Kill any existing instance before starting.
+.El
+.Ss stop
+Stop a service.
+Alias:
+.Cm kill .
+.Pp
+.Nm
+.Cm stop
+.Op Fl e | Fl \-exact
+.Op Fl s | Fl \-signal Ar signal
+.Ar name
+.Bl -tag -width Ds
+.It Fl s , Fl \-signal Ar signal
+Signal to send:
+.Ar sigterm
+(default),
+.Ar sigkill ,
+.Ar sighup ,
+or
+.Ar sigint .
+.El
+.Ss restart
+Restart a service.
+Alias:
+.Cm kkill .
+.Pp
+.Nm
+.Cm restart
+.Op Fl e | Fl \-exact
+.Ar name
+.Ss reboot
+Boot out then bootstrap the service.
+Reloads the plist from disk (picks up symlink target changes).
+.Pp
+.Nm
+.Cm reboot
+.Op Fl e | Fl \-exact
+.Ar name
+.Ss bootstrap
+Bootstrap a service into launchd.
+.Pp
+.Nm
+.Cm bootstrap
+.Op Fl e | Fl \-exact
+.Ar name
+.Ss bootout
+Remove a service from launchd (bootout).
+.Pp
+.Nm
+.Cm bootout
+.Op Fl e | Fl \-exact
+.Ar name
+.Ss status
+Show service status.
+.Pp
+.Nm
+.Cm status
+.Op Fl e | Fl \-exact
+.Op Fl d | Fl \-debug
+.Ar name
+.Bl -tag -width Ds
+.It Fl d , Fl \-debug
+Show raw
+.Xr launchctl 1
+output and parsed data.
+.El
+.Ss logs
+Show service logs.
+.Pp
+.Nm
+.Cm logs
+.Op Fl e | Fl \-exact
+.Op Fl t | Fl \-time Ar timeframe
+.Ar name
+.Bl -tag -width Ds
+.It Fl t , Fl \-time Ar timeframe
+Log time window, e.g.
+.Ar 5m ,
+.Ar 1h ,
+.Ar 24h .
+Default:
+.Ar 5m .
+.El
+.Ss list
+List services.
+Alias:
+.Cm ls .
+.Pp
+.Nm
+.Cm list
+.Op Fl e | Fl \-exact
+.Op Fl a | Fl \-apple
+.Op Fl d | Fl \-dynamic
+.Op Fl i | Fl \-idle
+.Op Fl s | Fl \-sort Ar field
+.Op Ar pattern
+.Bl -tag -width Ds
+.It Fl a , Fl \-apple
+Include Apple daemons.
+.It Fl d , Fl \-dynamic
+Include dynamically loaded daemons.
+.It Fl i , Fl \-idle
+Include idle daemons (no pid).
+.It Fl s , Fl \-sort Ar field
+Sort by
+.Ar parent ,
+.Ar domain ,
+or
+.Ar name
+(default).
+.El
+.Ss plist
+Print a service's plist.
+.Pp
+.Nm
+.Cm plist
+.Op Fl e | Fl \-exact
+.Ar name
+.Ss enable
+Enable a service.
+.Pp
+.Nm
+.Cm enable
+.Op Fl e | Fl \-exact
+.Ar name
+.Ss disable
+Disable a service.
+.Pp
+.Nm
+.Cm disable
+.Op Fl e | Fl \-exact
+.Ar name
+.Ss print
+Print service information
+.Pq Xr launchctl 1 Cm print wrapper .
+.Pp
+.Nm
+.Cm print
+.Op Fl e | Fl \-exact
+.Ar name
+.Sh COMMON OPTIONS
+Most commands that take a service
+.Ar name
+accept:
+.Bl -tag -width Ds
+.It Fl e , Fl \-exact
+Require an exact name match instead of fuzzy matching.
+.El
+.Sh DOMAINS
+.Nm
+targets launchd domains the same way
+.Xr launchctl 1
+does:
+.Bl -tag -width Ds
+.It Ar gui
+Aqua / GUI login session
+.Pq Cm gui/$UID .
+This is the
+.Em default
+for LaunchAgents in
+.Pa ~/Library/LaunchAgents
+and
+.Pa /Library/LaunchAgents
+when the plist omits
+.Cm LimitLoadToSessionType
+(Apple's default is Aqua).
+.It Ar user
+Background / non-GUI user session
+.Pq Cm user/$UID .
+Use for agents meant for SSH-style contexts
+.Pq typically Cm LimitLoadToSessionType=Background .
+.It Ar system
+System LaunchDaemons
+.Pq Cm system .
+Requires root.
+.El
+.Pp
+.Nm
+still honors an explicit
+.Fl \-domain
+on install and the plist's
+.Cm LimitLoadToSessionType
+when set
+.Pq Aqua maps to gui; Background and LoginWindow map to user; System maps to system .
+See also
+.Xr launchctl 1
+and Apple's
+.Dq Daemons and Agents
+technote
+.Pq TN2083 .
+.Sh CONFIGURATION
+.Nm
+optionally reads YAML config from the first existing path among:
+.Bl -bullet -compact
+.It
+.Pa ~/.angelrc
+.It
+.Pa $XDG_CONFIG_HOME/angel/.angelrc
+.It
+.Pa ~/.config/angel/.angelrc
+.El
+.Pp
+Config may define extra plist directories and their launchd domain:
+.Bd -literal -offset indent
+directories:
+  - path: ~/Services
+    domain: gui
+  - path: /Library/LaunchDaemons
+    domain: system
+.Ed
+.Pp
+Valid
+.Cm domain
+values:
+.Ar system ,
+.Ar user ,
+.Ar gui .
+Paths may use
+.Ql ~ .
+Config is skipped when running as root
+.Pq home is Pa /var/root .
+.Sh EXIT STATUS
+.Ex -std
+.Sh EXAMPLES
+List user-visible services:
+.Bd -literal -offset indent
+angel list
+.Ed
+.Pp
+Install a plist into the GUI domain via symlink:
+.Bd -literal -offset indent
+angel install ./com.example.my.plist --domain gui
+.Ed
+.Pp
+Start, inspect, and stop a service:
+.Bd -literal -offset indent
+angel start my.service
+angel status my.service
+angel logs my.service -t 1h
+angel stop my.service
+.Ed
+.Pp
+Reload a service after editing a symlinked plist:
+.Bd -literal -offset indent
+angel reboot my.service
+.Ed
+.Sh SEE ALSO
+.Xr launchctl 1 ,
+.Xr launchd 8
+.Sh AUTHORS
+.An The angel contributors
+.Sh BUGS
+Report issues in the project repository.

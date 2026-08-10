@@ -47,7 +47,7 @@ fn get_plist_dirs(
         },
         PlistDir {
             path: PathBuf::from("/Library/LaunchAgents"),
-            domain: Domain::User(user_uid),
+            domain: Domain::Gui(user_uid),
             for_use_by: ForWhom::ThirdParty,
             is_system_monitored: true,
         },
@@ -55,7 +55,7 @@ fn get_plist_dirs(
 
     dirs.push(PlistDir {
         path: home.join("Library/LaunchAgents"),
-        domain: Domain::User(user_uid),
+        domain: Domain::Gui(user_uid),
         for_use_by: ForWhom::User,
         is_system_monitored: true,
     });
@@ -155,6 +155,7 @@ impl DaemonRegistry {
                 for service in services {
                     // Update existing daemon or create new one
                     if let Some(daemon) = map.get_mut(&service.name) {
+                        daemon.domain = domain;
                         daemon.pid = service.pid;
                         daemon.last_exit_code = service.last_exit_code;
                     } else {

@@ -29,6 +29,17 @@ fn domain_from_plist_unknown_or_missing_uses_default() {
 }
 
 #[test]
+fn domain_from_plist_missing_session_uses_gui_launch_agents_default() {
+    let uid = 501;
+    let launch_agents_default = Domain::Gui(uid);
+    assert_eq!(Domain::from_plist(&Plist::default(), uid, launch_agents_default), Domain::Gui(uid));
+    assert_eq!(
+        Domain::from_plist(&plist_session("SomethingElse"), uid, launch_agents_default),
+        Domain::Gui(uid)
+    );
+}
+
+#[test]
 fn domain_display() {
     assert_eq!(Domain::System.to_string(), "system");
     assert_eq!(Domain::User(501).to_string(), "user/501");
