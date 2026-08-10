@@ -21,7 +21,7 @@ pub struct NameArgs {
     pub exact: bool,
 }
 
-#[derive(Clone, ValueEnum)]
+#[derive(Clone, Copy, ValueEnum)]
 pub enum SortBy {
     Parent,
     Domain,
@@ -72,25 +72,28 @@ pub struct InstallArgs {
 }
 
 #[derive(Clone, ValueEnum)]
-#[allow(non_camel_case_types)]
 pub enum Signal {
     /// Graceful termination (default)
-    sigterm,
+    #[value(name = "sigterm")]
+    SigTerm,
     /// Force immediate termination
-    sigkill,
+    #[value(name = "sigkill")]
+    SigKill,
     /// Hangup signal (often used for reload)
-    sighup,
+    #[value(name = "sighup")]
+    SigHup,
     /// Interrupt signal
-    sigint,
+    #[value(name = "sigint")]
+    SigInt,
 }
 
 impl fmt::Display for Signal {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Signal::sigterm => write!(f, "sigterm"),
-            Signal::sigkill => write!(f, "sigkill"),
-            Signal::sighup => write!(f, "sighup"),
-            Signal::sigint => write!(f, "sigint"),
+            Signal::SigTerm => write!(f, "sigterm"),
+            Signal::SigKill => write!(f, "sigkill"),
+            Signal::SigHup => write!(f, "sighup"),
+            Signal::SigInt => write!(f, "sigint"),
         }
     }
 }

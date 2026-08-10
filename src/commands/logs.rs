@@ -4,8 +4,9 @@ use crate::error::Result;
 use crate::output::stdout;
 use crate::styles;
 use crossterm::style::Color;
+use rev_lines::RevLines;
 use std::fs;
-use std::io::Read;
+use std::io::BufReader;
 use std::path::Path;
 use std::process::Command;
 
@@ -56,7 +57,7 @@ fn emit_log_section(label: &str, path: &str) -> bool {
         return false;
     }
     stdout::writeln(&styles::prefix(Color::Yellow, &format!("{}: {}", label, path)));
-    match read_log_file(path) {
+    match read_log_file_tail(path, 50) {
         Ok(content) if !content.is_empty() => stdout::writeln(&content),
         Ok(_) => stdout::writeln("  (empty)"),
         Err(_) => stdout::writeln("  (cannot read - may require sudo)"),
@@ -70,11 +71,15 @@ fn last_n_lines(contents: &str, n: usize) -> String {
     if lines.len() > n { lines[lines.len() - n..].join("\n") } else { contents.to_string() }
 }
 
-fn read_log_file(path: &str) -> Result<String> {
-    let mut file = fs::File::open(path)?;
-    let mut contents = String::new();
-    file.read_to_string(&mut contents)?;
-    Ok(last_n_lines(&contents, 50))
+/// Read only the last `n` lines via reverse iteration (avoids loading whole file).
+fn read_log_file_tail(path: &str, n: usize) -> Result<String> {
+    let file = fs::File::open(path)?;
+    let mut lines = Vec::with_capacity(n);
+    for line in RevLines::new(BufReader::new(file)).take(n) {
+        lines.push(line.map_err(|e| crate::error::Error::unexpected(e))?);
+    }
+    lines.reverse();
+    Ok(lines.join("\n"))
 }
 
 fn extract_process_name(daemon: &crate::types::Daemon) -> String {
@@ -97,7 +102,7 @@ fn extract_process_name(daemon: &crate::types::Daemon) -> String {
 
 fn get_unified_logs(process_name: &str, time_frame: &str) -> Result<String> {
     let output = Command::new("log")
-        .args(&[
+        .args([
             "show",
             "--predicate",
             &format!("process == \"{}\"", process_name),

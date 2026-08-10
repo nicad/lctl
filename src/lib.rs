@@ -20,8 +20,7 @@ pub fn run() -> Result<(), error::Error> {
     output::init(cli.verbose);
 
     if let Commands::Cheatsheet { subcommand } = &cli.command {
-        commands::cheatsheet::run(subcommand);
-        return Ok(());
+        return commands::cheatsheet::run(subcommand);
     }
 
     let angel = angel::Angel::load()?;

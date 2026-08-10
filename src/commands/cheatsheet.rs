@@ -1,17 +1,18 @@
 use crate::angel::{angel_domain_dirs, get_angel_dir};
 use crate::cli::CheatsheetSubcommand;
+use crate::error::Result;
 use crate::output::stdout;
 use crate::styles;
 use crate::types::Domain;
 
-pub fn run(subcommand: &CheatsheetSubcommand) {
+pub fn run(subcommand: &CheatsheetSubcommand) -> Result<()> {
     match subcommand {
         CheatsheetSubcommand::Domains => print_domains(),
     }
 }
 
-fn print_domains() {
-    let _ = crate::utils::init_home();
+fn print_domains() -> Result<()> {
+    crate::utils::init_home()?;
     let angel_dir = get_angel_dir().unwrap_or_else(|_| {
         crate::utils::home().join(".config").join("angel")
     });
@@ -67,4 +68,5 @@ fn print_domains() {
     stdout::writeln("    • /System/Library/LaunchAngels (Apple GUI agents)");
     stdout::writeln(&format!("    • {} (angel-managed GUI agents)", angel_gui));
     stdout::writeln("");
+    Ok(())
 }

@@ -184,27 +184,20 @@ fn get_domain_selection(
                 .items(&domains)
                 .default(0)
                 .interact()?;
-            domains[domain_selection_index].clone()
+            domains[domain_selection_index]
         }
     };
     let plist_domain = Domain::from_plist(plist_data, angel.uid.as_raw(), selected_domain);
-    match plist_domain == selected_domain {
-        false => {
-            return Err(Error::InvalidInput(err_msg!(
-                "The domain written in the plist is `{}` does not match the selected domain `{}`.",
-                plist_domain,
-                selected_domain
-            )));
-        }
-        true => {}
+    if plist_domain != selected_domain {
+        return Err(Error::InvalidInput(err_msg!(
+            "The domain written in the plist is `{}` does not match the selected domain `{}`.",
+            plist_domain,
+            selected_domain
+        )));
     }
 
-    match selected_domain {
-        Domain::System => match angel.is_root() {
-            false => return Err(Error::NeedsRoot),
-            true => {}
-        },
-        _ => {}
+    if matches!(selected_domain, Domain::System) && !angel.is_root() {
+        return Err(Error::NeedsRoot);
     }
 
     Ok(selected_domain)
@@ -215,16 +208,17 @@ fn make_target_path(domain: &Domain, service_name: &str) -> Result<PathBuf> {
         Domain::System => PathBuf::from("/Library/LaunchDaemons"),
         _ => crate::utils::home().join("Library/LaunchAgents"),
     };
-    let filename = match service_name.ends_with(".plist") {
-        true => service_name.to_string(),
-        false => format!("{}.plist", service_name),
+    let filename = if service_name.ends_with(".plist") {
+        service_name.to_string()
+    } else {
+        format!("{}.plist", service_name)
     };
     Ok(target_dir.join(filename))
 }
 
 fn set_system_permissions(path: &Path) -> Result<()> {
     // sudo chown root:wheel
-    let uid = Uid::from(0); // root = 0
+    let uid = Uid::from_raw(0); // root = 0
     let gid = Gid::from_raw(0); // wheel = 0
     fchownat(AT_FDCWD, path, Some(uid), Some(gid), AtFlags::AT_SYMLINK_NOFOLLOW)?;
 

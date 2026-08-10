@@ -16,3 +16,4 @@
     comfy-table = "7"
     dialoguer   = "0.12"
     nom         = "8.0.0"
+    rev_lines   = "0.3"

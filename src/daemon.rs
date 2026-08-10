@@ -58,12 +58,7 @@ fn get_plist_dirs(config: &Config, user_uid: u32, angel_dir: &std::path::Path) -
     });
 
     for (path, domain, for_use_by) in crate::angel::angel_domain_dirs(angel_dir, user_uid) {
-        dirs.push(PlistDir {
-            path,
-            domain,
-            for_use_by,
-            is_system_monitored: false,
-        });
+        dirs.push(PlistDir { path, domain, for_use_by, is_system_monitored: false });
     }
 
     // Add user-defined directories from config
@@ -109,12 +104,10 @@ impl DaemonRegistry {
                         let found_daemon = map.get(&plist_data.label.clone().unwrap_or_default());
                         let found_path = found_daemon.and_then(|daemon| daemon.source_path.clone());
                         let source_path = match found_path {
-                            Some(found_path) => match () {
-                                _ if path.is_symlink() => path,
-                                _ if found_path.is_symlink() => found_path,
-                                _ if plist_dir.is_system_monitored => found_path,
-                                _ => path,
-                            },
+                            Some(_) if path.is_symlink() => path,
+                            Some(found_path) if found_path.is_symlink() => found_path,
+                            Some(found_path) if plist_dir.is_system_monitored => found_path,
+                            Some(_) => path,
                             None => path,
                         };
 
@@ -227,6 +220,7 @@ impl DaemonRegistry {
     }
 
     fn find_matches(&self, query: &str, exact: bool) -> Result<Vec<&Daemon>> {
+        let query_lower = if exact { String::new() } else { query.to_ascii_lowercase() };
         Ok(self
             .map
             .values()
@@ -234,7 +228,7 @@ impl DaemonRegistry {
                 if exact {
                     daemon.name.eq_ignore_ascii_case(query)
                 } else {
-                    daemon.name.to_ascii_lowercase().contains(&query.to_ascii_lowercase())
+                    daemon.name.to_ascii_lowercase().contains(&query_lower)
                 }
             })
             .collect())

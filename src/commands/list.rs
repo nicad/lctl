@@ -9,18 +9,17 @@ use crate::types::ForWhom;
 pub fn run(angel: &Angel, args: &ListArgs) -> Result<()> {
     let query = args.pattern.as_deref().unwrap_or("");
     let mut matching_daemons = angel.daemons.get_matches(query, args.exact)?;
-    sort_daemons(args.sort_by.clone(), &mut matching_daemons);
+    sort_daemons(args.sort_by, &mut matching_daemons);
 
     let mut table = styles::create_table();
     table.set_header(vec!["EC", "PID", "Domain", "Name", "Source"]);
 
     for daemon in &matching_daemons {
-        match (daemon.for_use_by == ForWhom::Apple && !args.show_apple)
+        if (daemon.for_use_by == ForWhom::Apple && !args.show_apple)
             || (daemon.source_path.is_none() && !args.show_dynamic)
             || (daemon.pid.is_none() && !args.show_idle)
         {
-            true => continue,
-            false => {}
+            continue;
         }
 
         table.add_row(vec![
