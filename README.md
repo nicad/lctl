@@ -10,6 +10,13 @@ A friendlier CLI for managing launchd services — install, start/stop/restart, 
 cargo install --path .
 ```
 
+Installs the binary to `~/.cargo/bin` and the man page to `~/.cargo/share/man/man1/`.
+If Homebrew (or anything else) sets `MANPATH`, add cargo's man dir so `man angel` works:
+
+```bash
+export MANPATH="$HOME/.cargo/share/man${MANPATH:+:$MANPATH}"
+```
+
 Requires macOS.
 
 ## Usage

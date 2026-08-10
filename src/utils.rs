@@ -58,10 +58,13 @@ pub fn confirm_with_default(prompt: &str, default: bool) -> Result<bool> {
 }
 
 /// Pick one daemon from matches: empty → NotFound, one → that daemon, many → interactive select.
-pub fn pick_daemon<'a>(matches: Vec<&'a Daemon>, query: &str) -> Result<&'a Daemon> {
+/// Matches are sorted by name so the menu (and `-y` default) is stable.
+pub fn pick_daemon<'a>(mut matches: Vec<&'a Daemon>, query: &str) -> Result<&'a Daemon> {
+    matches.sort_by(|a, b| a.name.cmp(&b.name));
     match matches.len() {
         0 => Err(Error::NotFound(err_msg!(query))),
         1 => Ok(matches[0]),
+        _ if crate::output::assume_yes() => Ok(matches[0]),
         _ => {
             let items: Vec<String> = matches
                 .iter()

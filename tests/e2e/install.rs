@@ -16,6 +16,47 @@ fn install_symlinks_plist_and_loads_service() {
     harness::assert_not_running(&svc.target);
 }
 
+/// Plists under `{ANGEL_CONFIG_DIR}/gui` (≈ `~/.config/angel/gui`).
+/// Fuzzy query matches multiple → select (default / `-y` picks lexicographically first).
+#[test]
+fn install_by_fuzzy_name_from_angel_gui() {
+    harness::require_macos();
+    let mut first = TempServiceBuilder::gui("install-fuzzy-a").build();
+    let mut second = TempServiceBuilder::gui("install-fuzzy-b").build();
+
+    let angel_config = first.temp.path().join("angel-config");
+    let gui_dir = angel_config.join("gui");
+    std::fs::create_dir_all(&gui_dir).expect("mkdir angel gui");
+
+    for svc in [&mut first, &mut second] {
+        let dest = gui_dir.join(format!("{}.plist", svc.label));
+        std::fs::rename(&svc.fixture_plist, &dest).expect("move plist into angel gui");
+        svc.fixture_plist = dest;
+    }
+
+    // Shared substring; both angel-gui plists match. `-y` takes sorted default (first).
+    let query = "install-fuzzy";
+    assert!(first.label.contains(query) && second.label.contains(query));
+    let (expected, other) =
+        if first.label < second.label { (&first, &second) } else { (&second, &first) };
+
+    harness::angel()
+        .env("ANGEL_CONFIG_DIR", &angel_config)
+        .args(["install", query])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains(format!("installed {}", expected.label)));
+
+    harness::assert_installed_symlink(expected);
+    harness::assert_loaded(&expected.target);
+    harness::assert_not_running(&expected.target);
+    assert!(
+        !other.installed_plist.exists()
+            && std::fs::symlink_metadata(&other.installed_plist).is_err(),
+        "non-selected match should not be installed"
+    );
+}
+
 #[test]
 #[ignore = "system domain; run: sudo -v && cargo e2e-all"]
 fn system_install_symlinks_plist_sets_root_ownership_and_loads() {
