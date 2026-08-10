@@ -2,9 +2,18 @@
 
 The launchctl macOS *should've* implemented.
 
-A friendlier CLI with lots of helpful features: the ability for services to live wherever you want, more meaningful errors, and even a status command!
+A friendly wrapper for launchctl, complete with a status command.
 
-Requires macOS.
+Inspired by [lunchy](https://github.com/eddiezane/lunchy), but using the new launchctl API, and with a focus on features.
+
+**Features:**
+- Services can live wherever you want
+- More meaningful errors
+- A status command!
+- Shell completion
+- Fuzzy and regex search
+- Beautiful and customizable search output
+- More to come!
 
 ## Install
 
@@ -12,20 +21,12 @@ Requires macOS.
 brew install oliviaBahr/tap/angel
 ```
 
-That one command taps the formula and installs the binary plus man page.
-
 ### From source (contributors)
 
 ```bash
 cargo install --path .
 ```
-
 Installs the binary to `~/.cargo/bin` and the man page to `~/.cargo/share/man/man1/`.
-If Homebrew (or anything else) sets `MANPATH`, add cargo's man dir so `man angel` works:
-
-```bash
-export MANPATH="$HOME/.cargo/share/man${MANPATH:+:$MANPATH}"
-```
 
 ## Usage
 
@@ -85,10 +86,6 @@ directories:
 ```
 
 Valid `domain` values: `gui`, `user`, `system`. Paths may use `~`.
-
-## Releasing
-
-Maintainers: bump `version` in `Cargo.toml`, push to `main`, then run **Actions → Release → Run workflow** with that version. Requires the `HOMEBREW_TAP_TOKEN` repo secret (PAT that can push to `oliviaBahr/homebrew-tap`). The workflow tags `vX.Y.Z`, creates a GitHub Release, and updates the Homebrew formula.
 
 ## Contributing
 
