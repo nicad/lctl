@@ -26,6 +26,11 @@ fn run() -> Result<(), error::Error> {
 
     output::init(cli.verbose);
 
+    if let Commands::Cheatsheet { subcommand } = &cli.command {
+        commands::cheatsheet::run(subcommand);
+        return Ok(());
+    }
+
     let angel = angel::Angel::load()?;
 
     match cli.command {
@@ -44,9 +49,6 @@ fn run() -> Result<(), error::Error> {
         Commands::Enable(args) => commands::enable::run(&angel, &args),
         Commands::Disable(args) => commands::disable::run(&angel, &args),
         Commands::Print(args) => commands::print::run(&angel, &args),
-        Commands::Cheatsheet { subcommand } => {
-            commands::cheatsheet::run(&subcommand);
-            Ok(())
-        }
+        Commands::Cheatsheet { .. } => unreachable!(),
     }
 }

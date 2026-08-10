@@ -3,7 +3,7 @@ use crate::cli::ListArgs;
 use crate::error::Result;
 use crate::output;
 use crate::output::stdout;
-use crate::styles::styles;
+use crate::styles;
 use crate::types::ForWhom;
 use clap::ValueEnum;
 
@@ -34,7 +34,7 @@ pub fn run(angel: &Angel, args: &ListArgs) -> Result<()> {
         table.add_row(vec![
             daemon.last_exit_code.clone().unwrap_or("-".to_string()),
             daemon.pid.map_or("-".to_string(), |p| p.to_string()),
-            (&daemon.domain).to_string(),
+            daemon.domain.to_string(),
             daemon.name.clone(),
             styles::display_path(daemon, output::is_verbose()),
         ]);
@@ -51,7 +51,10 @@ fn sort_daemons(sort_by: SortBy, daemons: &mut Vec<&crate::types::Daemon>) {
         }
         SortBy::Domain => {
             daemons.sort_by(|a, b| {
-                a.domain_str().cmp(&b.domain_str()).then_with(|| a.name.cmp(&b.name))
+                a.domain
+                    .to_string()
+                    .cmp(&b.domain.to_string())
+                    .then_with(|| a.name.cmp(&b.name))
             });
         }
         SortBy::Parent => {

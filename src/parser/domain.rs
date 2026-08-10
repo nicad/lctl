@@ -13,7 +13,7 @@ use nom::{
 pub fn parse_print_domain(domain: &Domain) -> Result<Vec<(Option<u32>, Option<String>, String)>> {
     let result = launchctl::print(&domain.to_string())?;
     result.require_ok(&format!("print domain {}", domain))?;
-    parse_domain_output(result.stdout_bytes())
+    parse_domain_output(result.stdout.as_bytes())
 }
 
 fn parse_domain_output(input: &[u8]) -> Result<Vec<(Option<u32>, Option<String>, String)>> {

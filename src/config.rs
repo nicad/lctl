@@ -71,11 +71,8 @@ impl Config {
 
                 // Expand ~ in directory paths
                 if let Some(ref mut dirs) = config.directories {
-                    let home_str = home.to_string_lossy().to_string();
                     for dir in dirs.iter_mut() {
-                        if dir.path.starts_with('~') {
-                            dir.path = dir.path.replacen('~', &home_str, 1);
-                        }
+                        dir.path = crate::utils::expand_path(&dir.path).display().to_string();
                     }
                 }
 

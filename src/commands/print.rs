@@ -6,7 +6,7 @@ use crate::output::stdout;
 
 pub fn run(angel: &Angel, args: &NameArgs) -> Result<()> {
     let daemon = angel.daemons.get_match(&args.name, args.exact)?;
-    let result = launchctl::print(daemon)?;
+    let result = launchctl::print(&daemon.service_target())?;
     stdout::write(&result.stdout);
     Ok(())
 }

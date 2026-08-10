@@ -108,18 +108,6 @@ pub struct Daemon {
 }
 
 impl Daemon {
-    pub fn new(
-        name: String,
-        source_path: Option<PathBuf>,
-        domain: Domain,
-        for_use_by: ForWhom,
-        plist: Option<Plist>,
-        pid: Option<u32>,
-        last_exit_code: Option<String>,
-    ) -> Self {
-        Self { name, source_path, domain, for_use_by, plist, pid, last_exit_code }
-    }
-
     pub fn from_plist(
         plist: Plist,
         path: Option<PathBuf>,
@@ -146,7 +134,14 @@ impl Daemon {
         }
     }
 
-    pub fn domain_str(&self) -> String {
-        self.domain.to_string()
+    pub fn service_target(&self) -> String {
+        format!("{}/{}", self.domain, self.name)
+    }
+
+    pub fn require_source_path(&self) -> crate::error::Result<&std::path::Path> {
+        use crate::error::{Error, err_msg};
+        self.source_path.as_deref().ok_or_else(|| {
+            Error::InvalidInput(err_msg!("`{}` has no plist path on disk", self.name))
+        })
     }
 }

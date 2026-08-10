@@ -1,6 +1,6 @@
 use crate::angel::{angel_domain_dirs, get_angel_dir};
 use crate::output::stdout;
-use crate::styles::styles;
+use crate::styles;
 use crate::types::Domain;
 use clap::Subcommand;
 

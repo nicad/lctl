@@ -28,3 +28,13 @@ pub fn expand_path(path: &str) -> PathBuf {
         PathBuf::from(path)
     }
 }
+
+/// Interactive yes/no prompt. Returns whether the user confirmed.
+pub fn confirm(prompt: &str) -> Result<bool> {
+    confirm_with_default(prompt, false)
+}
+
+/// Interactive yes/no prompt with an explicit default selection.
+pub fn confirm_with_default(prompt: &str, default: bool) -> Result<bool> {
+    Ok(dialoguer::Confirm::new().with_prompt(prompt).default(default).interact()?)
+}

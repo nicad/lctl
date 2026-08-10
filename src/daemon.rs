@@ -2,9 +2,8 @@ use crate::config::Config;
 use crate::error::{Error, Result, err_msg};
 use crate::output::stderr;
 use crate::parser::Parser;
-use crate::styles::styles;
+use crate::styles;
 use crate::types::{Daemon, Domain, ForWhom, Plist};
-use regex::Regex;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::thread;
@@ -98,27 +97,32 @@ impl DaemonRegistry {
 
         // Scan plist directories
         for plist_dir in &plist_dirs {
-            let pattern = format!("{}/*.plist", plist_dir.path.display());
-            let matches = glob::glob(&pattern).unwrap_or_else(|_| glob::glob("").unwrap());
+            let Ok(entries) = std::fs::read_dir(&plist_dir.path) else {
+                continue;
+            };
 
-            for entry in matches.flatten() {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.extension().and_then(|e| e.to_str()) != Some("plist") {
+                    continue;
+                }
                 let plist_uid = match plist_dir.domain {
                     Domain::User(uid) | Domain::Gui(uid) => uid,
                     _ => 0,
                 };
-                if let Ok(content) = std::fs::read(&entry) {
+                if let Ok(content) = std::fs::read(&path) {
                     if let Ok(plist_data) = plist::from_bytes::<Plist>(&content) {
                         // pick source path for duplicates
                         let found_daemon = map.get(&plist_data.label.clone().unwrap_or_default());
                         let found_path = found_daemon.and_then(|daemon| daemon.source_path.clone());
                         let source_path = match found_path {
                             Some(found_path) => match () {
-                                _ if entry.is_symlink() => entry,
+                                _ if path.is_symlink() => path,
                                 _ if found_path.is_symlink() => found_path,
                                 _ if plist_dir.is_system_monitored => found_path,
-                                _ => entry,
+                                _ => path,
                             },
-                            None => entry,
+                            None => path,
                         };
 
                         let daemon = Daemon::from_plist(
@@ -162,15 +166,15 @@ impl DaemonRegistry {
                         } else {
                             ForWhom::ThirdParty
                         };
-                        let daemon = Daemon::new(
-                            name.clone(),
-                            None,
-                            domain.clone(),
+                        let daemon = Daemon {
+                            name: name.clone(),
+                            source_path: None,
+                            domain: domain.clone(),
                             for_use_by,
-                            None,
+                            plist: None,
                             pid,
                             last_exit_code,
-                        );
+                        };
                         map.insert(name, daemon);
                     }
                 }
@@ -184,7 +188,7 @@ impl DaemonRegistry {
         self.select_match(self.find_matches(query, exact)?, query)
     }
 
-    /// Fuzzy match restricted to plists loaded from `~/.config/angel/{user,system,gui}`.
+    /// Fuzzy match restricted to plists loaded from angel-managed dirs.
     pub fn get_angel_match(&self, query: &str) -> Result<&Daemon> {
         let matches = self
             .find_matches(query, false)?
@@ -210,7 +214,7 @@ impl DaemonRegistry {
                             "{:<19}{}  {}",
                             styles::color_domain(&daemon.domain),
                             daemon.name,
-                            styles::command(&styles::display_path(&daemon, false))
+                            styles::command(&styles::display_path(daemon, false))
                         )
                     })
                     .collect();
@@ -230,17 +234,16 @@ impl DaemonRegistry {
     }
 
     fn find_matches(&self, query: &str, exact: bool) -> Result<Vec<&Daemon>> {
-        let pattern = if exact {
-            format!("^{}$", regex::escape(query))
-        } else {
-            format!("(?i){}", regex::escape(query))
-        };
-
-        match Regex::new(&pattern) {
-            Ok(regex) => {
-                Ok(self.map.values().filter(|daemon| regex.is_match(&daemon.name)).collect())
-            }
-            Err(e) => Err(Error::InvalidInput(err_msg!("Invalid regex: {}", e))),
-        }
+        Ok(self
+            .map
+            .values()
+            .filter(|daemon| {
+                if exact {
+                    daemon.name.eq_ignore_ascii_case(query)
+                } else {
+                    daemon.name.to_ascii_lowercase().contains(&query.to_ascii_lowercase())
+                }
+            })
+            .collect())
     }
 }

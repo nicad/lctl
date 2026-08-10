@@ -1,5 +1,5 @@
 use clap::{Args, Parser, Subcommand, ValueEnum};
-use strum::Display;
+use std::fmt;
 
 #[derive(Parser)]
 #[command(name = "angel")]
@@ -51,7 +51,7 @@ pub struct InstallArgs {
     pub strategy: crate::commands::install::InstallStrategy,
 }
 
-#[derive(Clone, ValueEnum, Display)]
+#[derive(Clone, ValueEnum)]
 #[allow(non_camel_case_types)]
 pub enum Signal {
     /// Graceful termination (default)
@@ -62,6 +62,17 @@ pub enum Signal {
     sighup,
     /// Interrupt signal
     sigint,
+}
+
+impl fmt::Display for Signal {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Signal::sigterm => write!(f, "sigterm"),
+            Signal::sigkill => write!(f, "sigkill"),
+            Signal::sighup => write!(f, "sighup"),
+            Signal::sigint => write!(f, "sigint"),
+        }
+    }
 }
 
 #[derive(Args)]

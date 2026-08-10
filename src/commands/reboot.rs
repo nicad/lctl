@@ -1,17 +1,12 @@
 use crate::angel::Angel;
 use crate::cli::NameArgs;
-use crate::error::{Error, Result, err_msg};
+use crate::error::Result;
 use crate::launchctl;
 use crate::output::stdout;
 
 pub fn run(angel: &Angel, args: &NameArgs) -> Result<()> {
     let daemon = angel.daemons.get_match(&args.name, args.exact)?;
-    if daemon.source_path.is_none() {
-        return Err(Error::InvalidInput(err_msg!(
-            "`{}` has no plist path on disk (cannot reboot without a known plist)",
-            daemon.name
-        )));
-    }
+    daemon.require_source_path()?;
 
     let out = launchctl::bootout(daemon)?;
     stdout::write(&out.stdout);

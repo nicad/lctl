@@ -1,26 +1,21 @@
 use crate::error::{Error, Result, err_msg};
 use crate::output;
-use crate::styles::styles;
+use crate::styles;
 use crate::types::{Daemon, Domain};
 use crossterm::style::Color;
+use nix::unistd;
 use std::process::Command;
-use std::sync::OnceLock;
 
 #[derive(Debug)]
 pub struct LaunchctlOutput {
     pub stdout: String,
     pub stderr: String,
     pub exit_code: Option<i32>,
-    stdout_bytes: Vec<u8>,
 }
 
 impl LaunchctlOutput {
     pub fn success(&self) -> bool {
         self.exit_code == Some(0)
-    }
-
-    pub fn stdout_bytes(&self) -> &[u8] {
-        &self.stdout_bytes
     }
 
     /// Convert a non-zero launchctl exit into [`Error::Launchctl`].
@@ -54,81 +49,53 @@ impl LaunchctlOutput {
     }
 }
 
-static ROOT_STATUS: OnceLock<bool> = OnceLock::new();
-
 fn is_root() -> bool {
-    *ROOT_STATUS.get_or_init(|| unsafe { libc::geteuid() == 0 })
-}
-
-pub trait PrintTarget {
-    fn target_str(&self) -> String;
-}
-
-impl PrintTarget for Daemon {
-    fn target_str(&self) -> String {
-        format!("{}/{}", self.domain_str(), self.name)
-    }
-}
-
-impl PrintTarget for &str {
-    fn target_str(&self) -> String {
-        (*self).to_string()
-    }
-}
-
-impl PrintTarget for String {
-    fn target_str(&self) -> String {
-        self.clone()
-    }
+    unistd::geteuid().is_root()
 }
 
 pub fn bootstrap(daemon: &Daemon) -> Result<LaunchctlOutput> {
     let path = daemon
-        .source_path
-        .as_ref()
-        .ok_or_else(|| Error::InvalidInput(err_msg!("Cannot bootstrap daemon without source path")))?
+        .require_source_path()?
         .to_str()
         .ok_or_else(|| Error::InvalidInput(err_msg!("Invalid source path encoding")))?;
-    let res = launchctl_exec(vec!["bootstrap", &daemon.domain_str(), path]);
+    let domain = daemon.domain.to_string();
+    let res = launchctl_exec(vec!["bootstrap", &domain, path]);
     if res.as_ref().is_ok_and(|result| result.stdout.contains("Input/output error")) {
-        match daemon.domain {
-            Domain::User(_) => {
-                output::stdout::hint(
-                    "The user domain is for background sessions. If this isn't a background session, use the GUI domain.",
-                );
-            }
-            _ => {}
+        if matches!(daemon.domain, Domain::User(_)) {
+            output::stdout::hint(
+                "The user domain is for background sessions. If this isn't a background session, use the GUI domain.",
+            );
         }
     }
     res
 }
 
 pub fn bootout(daemon: &Daemon) -> Result<LaunchctlOutput> {
-    launchctl_exec(vec!["bootout", &service_target(daemon)])
+    launchctl_exec(vec!["bootout", &daemon.service_target()])
 }
 
 pub fn enable(daemon: &Daemon) -> Result<LaunchctlOutput> {
-    launchctl_exec(vec!["enable", &service_target(daemon)])
+    launchctl_exec(vec!["enable", &daemon.service_target()])
 }
 
 pub fn disable(daemon: &Daemon) -> Result<LaunchctlOutput> {
-    launchctl_exec(vec!["disable", &service_target(daemon)])
+    launchctl_exec(vec!["disable", &daemon.service_target()])
 }
 
 pub fn kickstart(daemon: &Daemon) -> Result<LaunchctlOutput> {
-    launchctl_exec(vec!["kickstart", &service_target(daemon)])
+    launchctl_exec(vec!["kickstart", &daemon.service_target()])
 }
 
 pub fn kickstart_kill(daemon: &Daemon) -> Result<LaunchctlOutput> {
-    launchctl_exec(vec!["kickstart", "-k", &service_target(daemon)])
+    launchctl_exec(vec!["kickstart", "-k", &daemon.service_target()])
 }
 
 pub fn kill(daemon: &Daemon, signal: &str) -> Result<LaunchctlOutput> {
-    launchctl_exec(vec!["kill", signal, &service_target(daemon)])
+    launchctl_exec(vec!["kill", signal, &daemon.service_target()])
 }
 
-pub fn print<T: PrintTarget>(target: &T) -> Result<LaunchctlOutput> {
-    launchctl_exec(vec!["print", &target.target_str()])
+pub fn print(target: &str) -> Result<LaunchctlOutput> {
+    launchctl_exec(vec!["print", target])
 }
 
 fn launchctl_exec(mut args: Vec<&str>) -> Result<LaunchctlOutput> {
@@ -148,18 +115,9 @@ fn launchctl_exec(mut args: Vec<&str>) -> Result<LaunchctlOutput> {
         Error::unexpected(format!("Failed to execute launchctl command: {}", e))
     })?;
 
-    let exit_code = output.status.code();
-    let stdout_str = String::from_utf8_lossy(&output.stdout).to_string();
-    let stderr_str = String::from_utf8_lossy(&output.stderr).to_string();
-
     Ok(LaunchctlOutput {
-        stdout: stdout_str,
-        stderr: stderr_str,
-        exit_code,
-        stdout_bytes: output.stdout,
+        stdout: String::from_utf8_lossy(&output.stdout).to_string(),
+        stderr: String::from_utf8_lossy(&output.stderr).to_string(),
+        exit_code: output.status.code(),
     })
-}
-
-fn service_target(daemon: &Daemon) -> String {
-    format!("{}/{}", daemon.domain_str(), daemon.name)
 }

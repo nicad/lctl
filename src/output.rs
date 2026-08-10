@@ -41,7 +41,7 @@ macro_rules! write_to_stream {
 /// User-facing data output (stdout) - for structured data, tables, results
 pub mod stdout {
     use super::*;
-    use crate::styles::styles::prefix;
+    use crate::styles::prefix;
 
     #[inline(always)]
     pub fn write(data: impl std::fmt::Display) {
@@ -71,7 +71,7 @@ pub mod stdout {
 
 /// Error/log output (stderr) - for errors, warnings, debug info
 pub mod stderr {
-    use crate::styles::styles::prefix;
+    use crate::styles::prefix;
     use crossterm::style::Color;
     use std::io::{self, Write};
 

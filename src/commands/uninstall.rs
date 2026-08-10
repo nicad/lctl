@@ -5,6 +5,7 @@ use crate::launchctl;
 use crate::output::{is_verbose, stderr, stdout};
 use crate::parser::{Parser, ServiceItem};
 use crate::types::Daemon;
+use crate::utils;
 use std::path::PathBuf;
 
 pub fn run(angel: &Angel, args: &NameArgs) -> Result<()> {
@@ -12,7 +13,11 @@ pub fn run(angel: &Angel, args: &NameArgs) -> Result<()> {
 
     let source_path = get_source_path(daemon)?;
 
-    if !confirm_uninstall(daemon, &source_path)? {
+    if !utils::confirm(&format!(
+        "Uninstall service `{}` at `{}`?",
+        daemon.name,
+        source_path.display()
+    ))? {
         stdout::writeln("Uninstall cancelled.");
         return Ok(());
     }
@@ -30,7 +35,7 @@ fn get_source_path(daemon: &Daemon) -> Result<PathBuf> {
         return Ok(path.clone());
     }
 
-    let result = launchctl::print(daemon)?;
+    let result = launchctl::print(&daemon.service_target())?;
     let parsed = Parser::parse_print_service(&result, daemon)?;
     match parsed.get("path") {
         Some(ServiceItem::Str(s)) => Ok(PathBuf::from(*s)),
@@ -40,24 +45,18 @@ fn get_source_path(daemon: &Daemon) -> Result<PathBuf> {
     }
 }
 
-fn confirm_uninstall(daemon: &Daemon, source_path: &PathBuf) -> Result<bool> {
-    Ok(dialoguer::Confirm::new()
-        .with_prompt(format!("Uninstall service `{}` at `{}`?", daemon.name, source_path.display()))
-        .interact()?)
-}
-
 fn bootout_service(daemon: &Daemon) {
     match launchctl::bootout(daemon) {
         Ok(result) => {
             if result.success() {
                 stdout::success(&format!("Unloaded service: {}", daemon.name));
             } else if is_verbose() {
-                stderr::warn(&format!("Warning: Failed to unload service: {}", result.stderr));
+                stderr::warn(&format!("Failed to unload service: {}", result.stderr));
             }
         }
         Err(e) => {
             if is_verbose() {
-                stderr::warn(&format!("Warning: Failed to unload service: {}", e));
+                stderr::warn(&format!("Failed to unload service: {}", e));
             }
         }
     }
@@ -69,7 +68,7 @@ fn remove_plist_file(source_path: &PathBuf) -> Result<()> {
         std::fs::remove_file(source_path)?;
         stdout::success(&format!("Removed plist file: {}", source_path_display));
     } else if is_verbose() {
-        stderr::warn(&format!("Warning: Plist file does not exist: {}", source_path_display));
+        stderr::warn(&format!("Plist file does not exist: {}", source_path_display));
     }
     Ok(())
 }
@@ -82,11 +81,12 @@ fn remove_db_overrides(daemon: &Daemon) -> Result<()> {
 
     let bytes = std::fs::read(&db_overrides_file)?;
     let disabled_services: std::collections::HashMap<String, bool> = plist::from_bytes(&bytes)?;
-    stdout::writeln(&format!("disabled_services: {:?}", disabled_services));
 
-    let current_value = disabled_services.get(&daemon.name);
-    if current_value.is_some() {
-        if !confirm_db_overrides(daemon, current_value.unwrap())? {
+    if let Some(current_value) = disabled_services.get(&daemon.name) {
+        if !utils::confirm(&format!(
+            "Found `{}` in enable/disable override database with disabled = {}. Remove it?",
+            daemon.name, current_value
+        ))? {
             return Ok(());
         }
         let mut updated_services = disabled_services.clone();
@@ -98,13 +98,4 @@ fn remove_db_overrides(daemon: &Daemon) -> Result<()> {
     }
 
     Ok(())
-}
-
-fn confirm_db_overrides(daemon: &Daemon, current_value: &bool) -> Result<bool> {
-    Ok(dialoguer::Confirm::new()
-        .with_prompt(format!(
-            "Found `{}` in enable/disable override database with disabled = {}. Remove it?",
-            daemon.name, current_value
-        ))
-        .interact()?)
 }

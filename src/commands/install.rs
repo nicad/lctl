@@ -3,7 +3,7 @@ use crate::cli::InstallArgs;
 use crate::error::{Error, Result, err_msg};
 use crate::launchctl;
 use crate::output::{is_verbose, stderr, stdout};
-use crate::styles::styles;
+use crate::styles;
 use crate::types::{Daemon, Domain, ForWhom, Plist};
 use crate::utils;
 use clap::ValueEnum;
@@ -76,9 +76,7 @@ fn resolve_source_path(
     } else {
         let query = query.strip_suffix(".plist").unwrap_or(query);
         let daemon = angel.daemons.get_angel_match(query)?;
-        daemon.source_path.clone().ok_or_else(|| {
-            Error::InvalidInput(err_msg!("Daemon `{}` has no plist path on disk", daemon.name))
-        })?
+        daemon.require_source_path()?.to_path_buf()
     };
 
     if path.is_symlink() {
@@ -122,20 +120,17 @@ fn kill_running_service(angel: &Angel, service_name: &str) -> Result<()> {
 }
 
 fn confirm_kill_running_service(daemon: &Daemon) -> Result<()> {
-    dialoguer::Confirm::new()
-        .with_prompt(format!(
-            "A service with the name {} is already running. Run bootout?",
+    if utils::confirm(&format!(
+        "A service with the name {} is already running. Run bootout?",
+        daemon.name
+    ))? {
+        Ok(())
+    } else {
+        Err(Error::InvalidInput(err_msg!(
+            "A service with the name {} is already running. Bootstrap will fail.",
             daemon.name
-        ))
-        .interact()
-        .unwrap_or(false)
-        .then_some(())
-        .ok_or_else(|| {
-            Error::InvalidInput(err_msg!(
-                "A service with the name {} is already running. Bootstrap will fail.",
-                daemon.name
-            ))
-        })
+        )))
+    }
 }
 
 fn install_file(
@@ -169,13 +164,10 @@ fn confirm_overwrite(target_path: &Path) -> Result<()> {
     if target_path.symlink_metadata().is_err() {
         return Ok(());
     }
-    let choice = dialoguer::Confirm::new()
-        .with_prompt(format!("A file already exists at {}.\nOverwrite it?", target_path.display()))
-        .default(true)
-        .interact()
-        .unwrap_or(false);
-
-    if !choice {
+    if !utils::confirm_with_default(
+        &format!("A file already exists at {}.\nOverwrite it?", target_path.display()),
+        true,
+    )? {
         return Err(Error::InvalidInput(err_msg!(
             "A file already exists at {}",
             styles::display_source_path(target_path, is_verbose())

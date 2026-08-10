@@ -2,7 +2,7 @@ use crate::angel::Angel;
 use crate::cli::LogsArgs;
 use crate::error::Result;
 use crate::output::stdout;
-use crate::styles::styles;
+use crate::styles;
 use crossterm::style::Color;
 use std::fs;
 use std::io::Read;
@@ -17,48 +17,12 @@ pub fn run(angel: &Angel, args: &LogsArgs) -> Result<()> {
 
     let mut found_any_logs = false;
 
-    // Check plist for StandardOutPath and StandardErrorPath
     if let Some(plist) = &daemon.plist {
-        // Show stdout logs
         if let Some(ref stdout_path) = plist.standard_out_path {
-            if Path::new(stdout_path).exists() {
-                found_any_logs = true;
-                stdout::writeln(&styles::prefix(
-                    Color::Yellow,
-                    &format!("stdout: {}", stdout_path),
-                ));
-                if let Ok(content) = read_log_file(stdout_path) {
-                    if !content.is_empty() {
-                        stdout::writeln(&content);
-                    } else {
-                        stdout::writeln("  (empty)");
-                    }
-                } else {
-                    stdout::writeln("  (cannot read - may require sudo)");
-                }
-                stdout::writeln("");
-            }
+            found_any_logs |= emit_log_section("stdout", stdout_path);
         }
-
-        // Show stderr logs
         if let Some(ref stderr_path) = plist.standard_error_path {
-            if Path::new(stderr_path).exists() {
-                found_any_logs = true;
-                stdout::writeln(&styles::prefix(
-                    Color::Yellow,
-                    &format!("stderr: {}", stderr_path),
-                ));
-                if let Ok(content) = read_log_file(stderr_path) {
-                    if !content.is_empty() {
-                        stdout::writeln(&content);
-                    } else {
-                        stdout::writeln("  (empty)");
-                    }
-                } else {
-                    stdout::writeln("  (cannot read - may require sudo)");
-                }
-                stdout::writeln("");
-            }
+            found_any_logs |= emit_log_section("stderr", stderr_path);
         }
     }
 
@@ -87,38 +51,47 @@ pub fn run(angel: &Angel, args: &LogsArgs) -> Result<()> {
     Ok(())
 }
 
+fn emit_log_section(label: &str, path: &str) -> bool {
+    if !Path::new(path).exists() {
+        return false;
+    }
+    stdout::writeln(&styles::prefix(Color::Yellow, &format!("{}: {}", label, path)));
+    match read_log_file(path) {
+        Ok(content) if !content.is_empty() => stdout::writeln(&content),
+        Ok(_) => stdout::writeln("  (empty)"),
+        Err(_) => stdout::writeln("  (cannot read - may require sudo)"),
+    }
+    stdout::writeln("");
+    true
+}
+
+fn last_n_lines(contents: &str, n: usize) -> String {
+    let lines: Vec<&str> = contents.lines().collect();
+    if lines.len() > n { lines[lines.len() - n..].join("\n") } else { contents.to_string() }
+}
+
 fn read_log_file(path: &str) -> Result<String> {
     let mut file = fs::File::open(path)?;
     let mut contents = String::new();
     file.read_to_string(&mut contents)?;
-
-    // Show last 50 lines if file is large
-    let lines: Vec<&str> = contents.lines().collect();
-    if lines.len() > 50 { Ok(lines[lines.len() - 50..].join("\n")) } else { Ok(contents) }
+    Ok(last_n_lines(&contents, 50))
 }
 
 fn extract_process_name(daemon: &crate::types::Daemon) -> String {
     if let Some(plist) = &daemon.plist {
-        // Try to get process name from Program
         if let Some(ref program) = plist.program {
-            if let Some(name) = std::path::Path::new(program).file_name() {
-                if let Some(name_str) = name.to_str() {
-                    return name_str.to_string();
-                }
+            if let Some(name) = Path::new(program).file_name().and_then(|n| n.to_str()) {
+                return name.to_string();
             }
         }
-        // Try to get from ProgramArguments (first argument is usually the program)
         if let Some(ref args) = plist.program_arguments {
             if let Some(first_arg) = args.first() {
-                if let Some(name) = std::path::Path::new(first_arg).file_name() {
-                    if let Some(name_str) = name.to_str() {
-                        return name_str.to_string();
-                    }
+                if let Some(name) = Path::new(first_arg).file_name().and_then(|n| n.to_str()) {
+                    return name.to_string();
                 }
             }
         }
     }
-    // Fallback to service name
     daemon.name.clone()
 }
 
@@ -137,13 +110,7 @@ fn get_unified_logs(process_name: &str, time_frame: &str) -> Result<String> {
 
     if output.status.success() {
         let logs = String::from_utf8_lossy(&output.stdout);
-        let lines: Vec<&str> = logs.lines().collect();
-        // Show last 50 lines
-        if lines.len() > 50 {
-            Ok(lines[lines.len() - 50..].join("\n"))
-        } else {
-            Ok(logs.to_string())
-        }
+        Ok(last_n_lines(&logs, 50))
     } else {
         Ok(String::new())
     }

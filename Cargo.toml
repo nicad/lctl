@@ -11,12 +11,8 @@
     plist       = "*"
     error_set   = "*"
     dirs        = "*"
-    regex       = "*"
-    glob        = "*"
-    libc        = "*"
     nix         = { version = "*", features = ["fs", "user"] }
     crossterm   = "*"
     comfy-table = "*"
     dialoguer   = "*"
-    strum       = { version = "*", features = ["derive"] }
     nom         = "8.0.0"

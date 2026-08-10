@@ -4,7 +4,7 @@ use crate::error::Result;
 use crate::launchctl;
 use crate::output::stdout;
 use crate::parser::{Parser, ServiceItem};
-use crate::styles::styles;
+use crate::styles;
 use comfy_table::Table;
 use crossterm::style::Color;
 
@@ -12,7 +12,7 @@ pub fn run(angel: &Angel, args: &StatusArgs) -> Result<()> {
     let daemon = angel.daemons.get_match(&args.target.name, args.target.exact)?;
 
     // Get launchctl result once (reuse for debug and parsing)
-    let result = launchctl::print(daemon)?;
+    let result = launchctl::print(&daemon.service_target())?;
 
     // Debug output
     if args.debug {
