@@ -4,9 +4,12 @@
 
 ```bash
 git config core.hooksPath .githooks
+cargo install --path .
 ```
 
 Pre-commit runs `cargo fmt --check --all` and blocks the commit if formatting fails. Fix with `cargo fmt`.
+
+Users install with `brew install oliviaBahr/tap/angel` (see [README.md](README.md)).
 
 ## Tests
 
@@ -24,6 +27,8 @@ cargo e2e
 # GUI + system e2e (prompts for sudo in your shell, then runs tests)
 sudo -v && cargo e2e-all
 ```
+
+`e2e-all` includes interactive auto-elevate tests that run `sudo -K` then plain `angel` with `/dev/tty` stdin — expect mid-suite password prompts. Run from a real terminal (not a pipe).
 
 Aliases live in `.cargo/config.toml`. Do **not** `sudo cargo test` — suite must run as your user (GUI / `$HOME`); only individual `angel` / `launchctl` calls are elevated.
 

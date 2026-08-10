@@ -1,7 +1,8 @@
 use assert_cmd::Command;
+use std::fs::File;
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
-use std::process::Command as StdCommand;
+use std::process::{Command as StdCommand, ExitStatus, Stdio};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 use tempfile::TempDir;
@@ -41,13 +42,49 @@ pub fn angel_sudo() -> Command {
 /// (parallel output buries `Password:`). Run `sudo -v && cargo e2e-all` instead.
 pub fn require_root_e2e() {
     require_macos();
-    let status = StdCommand::new("sudo").args(["-n", "true"]).status().expect("spawn sudo -n true");
     assert!(
-        status.success(),
+        sudo_n_ok(),
         "system e2e needs sudo without a prompt.\n\
          Run:  sudo -v && cargo e2e-all\n\
          (do not use `sudo cargo test` — only the ticket must be root-capable)"
     );
+}
+
+/// Interactive auto-elevate e2e: needs a controlling TTY so angel's `stdin_is_tty()` is true
+/// and `sudo -v` can prompt on `/dev/tty`.
+pub fn require_interactive_sudo_e2e() {
+    require_macos();
+    File::open("/dev/tty").unwrap_or_else(|e| {
+        panic!(
+            "interactive sudo e2e needs a controlling TTY ({e}).\n\
+             Run from a real terminal: sudo -v && cargo e2e-all"
+        )
+    });
+}
+
+pub fn sudo_n_ok() -> bool {
+    StdCommand::new("sudo").args(["-n", "true"]).status().map(|s| s.success()).unwrap_or(false)
+}
+
+/// Drop the cached sudo timestamp (`sudo -K`).
+pub fn invalidate_sudo_ticket() {
+    let status = StdCommand::new("sudo").arg("-K").status().expect("spawn sudo -K");
+    assert!(status.success(), "sudo -K failed");
+}
+
+/// Run `angel` as the current user with stdin attached to `/dev/tty` (not under `sudo -n`).
+/// stdout/stderr inherit so the sudo password prompt is visible.
+pub fn angel_tty_status(args: &[&str]) -> ExitStatus {
+    let bin = assert_cmd::cargo::cargo_bin("angel");
+    let tty = File::open("/dev/tty").expect("open /dev/tty for interactive angel");
+    StdCommand::new(bin)
+        .arg("-y")
+        .args(args)
+        .stdin(Stdio::from(tty))
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
+        .status()
+        .expect("spawn angel with /dev/tty stdin")
 }
 
 pub fn gui_target(label: &str) -> String {
