@@ -16,7 +16,7 @@ struct PlistDir {
     is_system_monitored: bool,
 }
 
-fn get_plist_dirs(config: &Config, user_uid: u32) -> Vec<PlistDir> {
+fn get_plist_dirs(config: &Config, user_uid: u32, angel_dir: &std::path::Path) -> Vec<PlistDir> {
     let mut dirs = vec![
         PlistDir {
             path: PathBuf::from("/System/Library/LaunchDaemons"),
@@ -51,32 +51,21 @@ fn get_plist_dirs(config: &Config, user_uid: u32) -> Vec<PlistDir> {
     ];
 
     let home = crate::utils::home();
-    dirs.extend(vec![
-        PlistDir {
-            path: home.join("Library/LaunchAgents"),
-            domain: Domain::User(user_uid),
-            for_use_by: ForWhom::User,
-            is_system_monitored: true,
-        },
-        PlistDir {
-            path: home.join(".config/angel/user"),
-            domain: Domain::User(user_uid),
-            for_use_by: ForWhom::Angel,
+    dirs.push(PlistDir {
+        path: home.join("Library/LaunchAgents"),
+        domain: Domain::User(user_uid),
+        for_use_by: ForWhom::User,
+        is_system_monitored: true,
+    });
+
+    for (path, domain, for_use_by) in crate::angel::angel_domain_dirs(angel_dir, user_uid) {
+        dirs.push(PlistDir {
+            path,
+            domain,
+            for_use_by,
             is_system_monitored: false,
-        },
-        PlistDir {
-            path: home.join(".config/angel/system"),
-            domain: Domain::System,
-            for_use_by: ForWhom::Angel,
-            is_system_monitored: false,
-        },
-        PlistDir {
-            path: home.join(".config/angel/gui"),
-            domain: Domain::Gui(user_uid),
-            for_use_by: ForWhom::Angel,
-            is_system_monitored: false,
-        },
-    ]);
+        });
+    }
 
     // Add user-defined directories from config
     for cfg_dir in config.get_directories() {
@@ -103,8 +92,8 @@ pub struct DaemonRegistry {
 }
 
 impl DaemonRegistry {
-    pub fn new(config: &Config, uid: u32) -> Result<Self> {
-        let plist_dirs = get_plist_dirs(config, uid);
+    pub fn new(config: &Config, uid: u32, angel_dir: &std::path::Path) -> Result<Self> {
+        let plist_dirs = get_plist_dirs(config, uid, angel_dir);
         let mut map: HashMap<String, Daemon> = HashMap::new();
 
         // Scan plist directories

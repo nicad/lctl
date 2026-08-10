@@ -88,16 +88,12 @@ fn resolve_source_path(
     let resolved = std::fs::canonicalize(&path).map_err(|e| {
         Error::InvalidInput(err_msg!("Could not resolve source path `{}`: {}", path.display(), e))
     })?;
-    let preselected_domain = infer_domain_from_angel_path(&resolved, angel.uid.as_raw());
+    let preselected_domain = infer_domain_from_angel_path(angel, &resolved);
     Ok((resolved, preselected_domain))
 }
 
-fn infer_domain_from_angel_path(resolved: &Path, uid: u32) -> Option<Domain> {
-    let home = utils::home();
-    let pairs: [(&str, Domain); 3] =
-        [("user", Domain::User(uid)), ("system", Domain::System), ("gui", Domain::Gui(uid))];
-    for (sub, domain) in pairs {
-        let base = home.join(".config/angel").join(sub);
+fn infer_domain_from_angel_path(angel: &Angel, resolved: &Path) -> Option<Domain> {
+    for (base, domain, _) in crate::angel::angel_domain_dirs(&angel.angel_dir, angel.uid.as_raw()) {
         if let Ok(base_canon) = std::fs::canonicalize(&base) {
             if resolved.starts_with(&base_canon) {
                 return Some(domain);
