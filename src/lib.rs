@@ -1,15 +1,15 @@
-pub(crate) mod angel;
-pub(crate) mod cli;
+pub mod angel;
+pub mod cli;
 pub(crate) mod commands;
-pub(crate) mod config;
-pub(crate) mod daemon;
-pub(crate) mod error;
-pub(crate) mod launchctl;
-pub(crate) mod output;
-pub(crate) mod parser;
-pub(crate) mod styles;
-pub(crate) mod types;
-pub(crate) mod utils;
+pub mod config;
+pub mod daemon;
+pub mod error;
+pub mod launchctl;
+pub mod output;
+pub mod parser;
+pub mod styles;
+pub mod types;
+pub mod utils;
 
 use angel::Angel;
 use clap::Parser;
@@ -21,7 +21,7 @@ pub use error::Error;
 pub fn run() -> Result<()> {
     let cli = Cli::parse();
 
-    output::init(cli.verbose);
+    output::init(cli.verbose, cli.yes);
 
     match cli.command {
         Commands::Cheatsheet { subcommand } => commands::cheatsheet::run(&subcommand),

@@ -23,7 +23,7 @@ pub fn parse_print_domain(domain: &Domain) -> Result<Vec<DomainService>> {
     parse_domain_output(result.stdout.as_bytes())
 }
 
-fn parse_domain_output(input: &[u8]) -> Result<Vec<DomainService>> {
+pub fn parse_domain_output(input: &[u8]) -> Result<Vec<DomainService>> {
     let services_marker: &[u8] = b"services = {";
     let closing_brace_parser = preceded(multispace0, tag(b"}" as &[u8]));
 
@@ -51,47 +51,4 @@ fn parse_service_line(input: &[u8]) -> IResult<&[u8], DomainService> {
 
 fn non_whitespace1(input: &[u8]) -> IResult<&[u8], &[u8]> {
     input.split_at_position1_complete(|item| item.as_char().is_whitespace(), ErrorKind::Char)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn parses_services_block() {
-        let input = br#"gui/501 = {
-	type = prompt
-	services = {
-		123	0	com.example.running
-		-	78	com.example.idle
-	}
-	disabled services = {
-	}
-}
-"#;
-        let services = parse_domain_output(input).unwrap();
-        assert_eq!(services.len(), 2);
-        assert_eq!(
-            services[0],
-            DomainService {
-                pid: Some(123),
-                last_exit_code: Some("0".into()),
-                name: "com.example.running".into(),
-            }
-        );
-        assert_eq!(
-            services[1],
-            DomainService {
-                pid: None,
-                last_exit_code: Some("78".into()),
-                name: "com.example.idle".into(),
-            }
-        );
-    }
-
-    #[test]
-    fn rejects_missing_services_block() {
-        let input = b"gui/501 = {\n\ttype = prompt\n}\n";
-        assert!(parse_domain_output(input).is_err());
-    }
 }

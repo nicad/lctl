@@ -1,5 +1,5 @@
 use crate::angel::Angel;
-use crate::cli::{InstallArgs, InstallStrategy};
+use crate::cli::{InstallArgs, InstallDomain, InstallStrategy};
 use crate::error::{Error, Result, err_msg};
 use crate::launchctl;
 use crate::output::{is_verbose, stderr, stdout};
@@ -29,7 +29,8 @@ pub(crate) fn run(angel: &Angel, args: &InstallArgs) -> Result<()> {
         styles::display_source_path(&source_path, is_verbose())
     ));
 
-    let selected_domain = get_domain_selection(angel, &plist_data, preselected_domain)?;
+    let selected_domain =
+        get_domain_selection(angel, &plist_data, args.domain, preselected_domain)?;
 
     // copy/symlink/move
     let target_path = make_target_path(angel, &selected_domain, &service_name)?;
@@ -172,13 +173,17 @@ fn confirm_overwrite(target_path: &Path) -> Result<()> {
 fn get_domain_selection(
     angel: &Angel,
     plist_data: &Plist,
+    cli_domain: Option<InstallDomain>,
     preselected: Option<Domain>,
 ) -> Result<Domain> {
-    let domains =
-        [Domain::Gui(angel.uid.as_raw()), Domain::System, Domain::User(angel.uid.as_raw())];
-    let selected_domain = match preselected {
-        Some(d) => d,
-        None => {
+    let uid = angel.uid.as_raw();
+    let domains = [Domain::Gui(uid), Domain::System, Domain::User(uid)];
+    let selected_domain = match (cli_domain, preselected) {
+        (Some(InstallDomain::Gui), _) => Domain::Gui(uid),
+        (Some(InstallDomain::User), _) => Domain::User(uid),
+        (Some(InstallDomain::System), _) => Domain::System,
+        (None, Some(d)) => d,
+        (None, None) => {
             let domain_selection_index = dialoguer::Select::new()
                 .with_prompt("In which domain should the service be installed?")
                 .items(&domains)

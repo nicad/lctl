@@ -118,9 +118,6 @@ fn get_unified_logs(process_name: &str, time_frame: &str) -> Result<String> {
         Ok(last_n_lines(&logs, 50))
     } else {
         let detail = String::from_utf8_lossy(&output.stderr);
-        Err(crate::error::Error::unexpected(format!(
-            "log show failed: {}",
-            detail.trim()
-        )))
+        Err(crate::error::Error::unexpected(format!("log show failed: {}", detail.trim())))
     }
 }

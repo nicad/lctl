@@ -149,9 +149,8 @@ impl DaemonRegistry {
             .collect();
 
         for handle in handles {
-            let joined = handle
-                .join()
-                .map_err(|_| Error::unexpected("domain scan thread panicked"))?;
+            let joined =
+                handle.join().map_err(|_| Error::unexpected("domain scan thread panicked"))?;
             if let Some((domain, services)) = joined {
                 for service in services {
                     // Update existing daemon or create new one

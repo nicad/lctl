@@ -23,3 +23,16 @@
     dialoguer   = "0.12"
     nom         = "8.0.0"
     rev_lines   = "0.3"
+
+[dev-dependencies]
+    assert_cmd  = "2"
+    predicates  = "3"
+    tempfile    = "3"
+
+[[test]]
+    name = "e2e"
+    path = "tests/e2e/main.rs"
+
+[[test]]
+    name = "unit"
+    path = "tests/unit/main.rs"

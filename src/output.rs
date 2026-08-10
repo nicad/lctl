@@ -5,23 +5,28 @@ use std::sync::OnceLock;
 /// Global output context storing configuration
 pub struct OutputContext {
     pub verbose: bool,
+    pub assume_yes: bool,
 }
 
 static CONTEXT: OnceLock<OutputContext> = OnceLock::new();
 
-/// Initialize the output context with the verbose flag
-/// Must be called before any output functions are used
-pub fn init(verbose: bool) {
-    CONTEXT.set(OutputContext { verbose }).ok();
+/// Initialize the output context. Must be called before any output functions are used.
+pub fn init(verbose: bool, assume_yes: bool) {
+    CONTEXT.set(OutputContext { verbose, assume_yes }).ok();
 }
 
 fn context() -> &'static OutputContext {
-    CONTEXT.get_or_init(|| OutputContext { verbose: false })
+    CONTEXT.get_or_init(|| OutputContext { verbose: false, assume_yes: false })
 }
 
 /// Check if verbose output is enabled
 pub fn is_verbose() -> bool {
     context().verbose
+}
+
+/// Check if confirmation prompts should be auto-accepted
+pub fn assume_yes() -> bool {
+    context().assume_yes
 }
 
 macro_rules! write_to_stream {

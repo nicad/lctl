@@ -1,0 +1,7 @@
+[alias]
+    # Pure unit tests (no launchd)
+    unit = "test --test unit"
+    # GUI e2e only
+    e2e = "test --test e2e"
+    # GUI + system (warm sudo first: `sudo -v && cargo e2e-all`)
+    e2e-all = "test --test e2e -- --include-ignored --test-threads=1"

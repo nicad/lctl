@@ -8,6 +8,9 @@ pub struct Cli {
     /// Verbose output
     #[arg(short, long)]
     pub verbose: bool,
+    /// Assume yes for confirmation prompts
+    #[arg(short = 'y', long = "yes")]
+    pub yes: bool,
     #[command(subcommand)]
     pub command: Commands,
 }
@@ -33,6 +36,13 @@ pub enum InstallStrategy {
     Copy,
     Symlink,
     Move,
+}
+
+#[derive(Clone, Copy, ValueEnum, PartialEq, Eq)]
+pub enum InstallDomain {
+    Gui,
+    User,
+    System,
 }
 
 #[derive(Subcommand)]
@@ -69,6 +79,9 @@ pub struct InstallArgs {
     /// Make a hard copy of the file instead of a symlink
     #[arg(short, long, default_value = "symlink")]
     pub strategy: InstallStrategy,
+    /// Target domain (skips interactive domain selection)
+    #[arg(long)]
+    pub domain: Option<InstallDomain>,
 }
 
 #[derive(Clone, ValueEnum)]

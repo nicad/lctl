@@ -36,6 +36,9 @@ pub fn confirm(prompt: &str) -> Result<bool> {
 
 /// Interactive yes/no prompt with an explicit default selection.
 pub fn confirm_with_default(prompt: &str, default: bool) -> Result<bool> {
+    if crate::output::assume_yes() {
+        return Ok(true);
+    }
     Ok(dialoguer::Confirm::new().with_prompt(prompt).default(default).interact()?)
 }
 
@@ -58,10 +61,7 @@ pub fn pick_daemon<'a>(matches: Vec<&'a Daemon>, query: &str) -> Result<&'a Daem
                 .collect();
 
             let selection = dialoguer::Select::new()
-                .with_prompt(format!(
-                    "Multiple daemons found matching '{}'. Select one:",
-                    query
-                ))
+                .with_prompt(format!("Multiple daemons found matching '{}'. Select one:", query))
                 .items(&items)
                 .default(0)
                 .interact()?;

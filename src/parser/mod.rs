@@ -1,7 +1,7 @@
-pub(crate) mod domain;
-pub(crate) mod service;
+pub mod domain;
+pub mod service;
 
-pub use domain::parse_print_domain;
+pub use domain::{DomainService, parse_domain_output, parse_print_domain};
 pub use service::{ParsedService, ServiceItem, parse_print_service};
 
 use crate::error::Result;
