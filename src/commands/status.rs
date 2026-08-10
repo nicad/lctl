@@ -3,7 +3,7 @@ use crate::cli::StatusArgs;
 use crate::error::Result;
 use crate::launchctl;
 use crate::output::stdout;
-use crate::parser::{Parser, ServiceItem};
+use crate::parser::{self, ServiceItem};
 use crate::styles;
 use comfy_table::Table;
 use crossterm::style::Color;
@@ -25,7 +25,7 @@ pub fn run(angel: &Angel, args: &StatusArgs) -> Result<()> {
         stdout::writeln("");
     }
 
-    let parsed = Parser::parse_print_service(&result, daemon)?;
+    let parsed = parser::parse_launchctl_service(&result, daemon)?;
 
     if args.debug {
         stdout::writeln(&styles::prefix(Color::Yellow, "=== Parsed output (pretty print) ==="));

@@ -1,23 +1,15 @@
 use crate::angel::Angel;
-use crate::cli::InstallArgs;
+use crate::cli::{InstallArgs, InstallStrategy};
 use crate::error::{Error, Result, err_msg};
 use crate::launchctl;
 use crate::output::{is_verbose, stderr, stdout};
 use crate::styles;
 use crate::types::{Daemon, Domain, ForWhom, Plist};
 use crate::utils;
-use clap::ValueEnum;
 use nix::fcntl::{AT_FDCWD, AtFlags};
 use nix::sys::stat::{FchmodatFlags, Mode, fchmodat};
 use nix::unistd::{Gid, Uid, fchownat};
 use std::path::{Path, PathBuf};
-
-#[derive(Clone, ValueEnum, PartialEq)]
-pub enum InstallStrategy {
-    Copy,
-    Symlink,
-    Move,
-}
 
 pub fn run(angel: &Angel, args: &InstallArgs) -> Result<()> {
     let expanded = utils::expand_path(args.path.as_str());
@@ -195,7 +187,7 @@ fn get_domain_selection(
             domains[domain_selection_index].clone()
         }
     };
-    let plist_domain = Domain::from_plist(plist_data, angel.uid.as_raw(), selected_domain.clone());
+    let plist_domain = Domain::from_plist(plist_data, angel.uid.as_raw(), selected_domain);
     match plist_domain == selected_domain {
         false => {
             return Err(Error::InvalidInput(err_msg!(

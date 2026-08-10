@@ -21,6 +21,26 @@ pub struct NameArgs {
     pub exact: bool,
 }
 
+#[derive(Clone, ValueEnum)]
+pub enum SortBy {
+    Parent,
+    Domain,
+    Name,
+}
+
+#[derive(Clone, ValueEnum, PartialEq)]
+pub enum InstallStrategy {
+    Copy,
+    Symlink,
+    Move,
+}
+
+#[derive(Subcommand)]
+pub enum CheatsheetSubcommand {
+    /// Show information about launchd domains
+    Domains,
+}
+
 #[derive(Args)]
 pub struct ListArgs {
     /// Pattern to match
@@ -39,7 +59,7 @@ pub struct ListArgs {
     pub show_idle: bool,
     /// Field to sort by
     #[arg(short = 's', long = "sort", default_value = "name")]
-    pub sort_by: crate::commands::list::SortBy,
+    pub sort_by: SortBy,
 }
 
 #[derive(Args)]
@@ -48,7 +68,7 @@ pub struct InstallArgs {
     pub path: String,
     /// Make a hard copy of the file instead of a symlink
     #[arg(short, long, default_value = "symlink")]
-    pub strategy: crate::commands::install::InstallStrategy,
+    pub strategy: InstallStrategy,
 }
 
 #[derive(Clone, ValueEnum)]
@@ -150,6 +170,6 @@ pub enum Commands {
     /// Show helpful reference information
     Cheatsheet {
         #[command(subcommand)]
-        subcommand: crate::commands::cheatsheet::CheatsheetSubcommand,
+        subcommand: CheatsheetSubcommand,
     },
 }

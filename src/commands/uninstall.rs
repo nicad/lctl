@@ -3,7 +3,7 @@ use crate::cli::NameArgs;
 use crate::error::{err_msg, Error, Result};
 use crate::launchctl;
 use crate::output::{is_verbose, stderr, stdout};
-use crate::parser::{Parser, ServiceItem};
+use crate::parser::{self, ServiceItem};
 use crate::types::Daemon;
 use crate::utils;
 use std::path::PathBuf;
@@ -36,7 +36,7 @@ fn get_source_path(daemon: &Daemon) -> Result<PathBuf> {
     }
 
     let result = launchctl::print(&daemon.service_target())?;
-    let parsed = Parser::parse_print_service(&result, daemon)?;
+    let parsed = parser::parse_launchctl_service(&result, daemon)?;
     match parsed.get("path") {
         Some(ServiceItem::Str(s)) => Ok(PathBuf::from(*s)),
         _ => Err(Error::InvalidInput(err_msg!(

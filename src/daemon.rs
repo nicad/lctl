@@ -1,7 +1,7 @@
 use crate::config::Config;
 use crate::error::{Error, Result, err_msg};
 use crate::output::stderr;
-use crate::parser::Parser;
+use crate::parser;
 use crate::styles;
 use crate::types::{Daemon, Domain, ForWhom, Plist};
 use std::collections::HashMap;
@@ -68,16 +68,9 @@ fn get_plist_dirs(config: &Config, user_uid: u32, angel_dir: &std::path::Path) -
 
     // Add user-defined directories from config
     for cfg_dir in config.get_directories() {
-        // Convert config domain (may have placeholder uid) to Domain with correct uid
-        let domain = match &cfg_dir.domain {
-            Domain::System => Domain::System,
-            Domain::User(_) => Domain::User(user_uid),
-            Domain::Gui(_) => Domain::Gui(user_uid),
-            Domain::Unknown => Domain::Unknown,
-        };
         dirs.push(PlistDir {
             path: PathBuf::from(&cfg_dir.path),
-            domain,
+            domain: cfg_dir.domain.to_domain(user_uid),
             for_use_by: ForWhom::User,
             is_system_monitored: false,
         });
@@ -128,7 +121,7 @@ impl DaemonRegistry {
                         let daemon = Daemon::from_plist(
                             plist_data,
                             Some(source_path),
-                            plist_dir.domain.clone(),
+                            plist_dir.domain,
                             plist_dir.for_use_by,
                             plist_uid,
                         );
@@ -143,7 +136,7 @@ impl DaemonRegistry {
         let handles: Vec<_> = domains
             .into_iter()
             .map(|domain| {
-                thread::spawn(move || match Parser::parse_print_domain(&domain) {
+                thread::spawn(move || match parser::parse_print_domain(&domain) {
                     Ok(services) => Some((domain, services)),
                     Err(e) => {
                         stderr::error(&format!("Failed to parse domain {}: {}", domain, e));
@@ -169,7 +162,7 @@ impl DaemonRegistry {
                         let daemon = Daemon {
                             name: name.clone(),
                             source_path: None,
-                            domain: domain.clone(),
+                            domain,
                             for_use_by,
                             plist: None,
                             pid,

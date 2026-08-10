@@ -7,44 +7,32 @@ pub struct Config {
     pub directories: Option<Vec<DirectoryConfig>>,
 }
 
+/// Domain kind as written in `.angelrc` (no uid; uid filled at runtime).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ConfigDomain {
+    System,
+    User,
+    Gui,
+    #[serde(other)]
+    Unknown,
+}
+
+impl ConfigDomain {
+    pub fn to_domain(self, uid: u32) -> Domain {
+        match self {
+            ConfigDomain::System => Domain::System,
+            ConfigDomain::User => Domain::User(uid),
+            ConfigDomain::Gui => Domain::Gui(uid),
+            ConfigDomain::Unknown => Domain::Unknown,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct DirectoryConfig {
     pub path: String,
-    #[serde(with = "domain_serde")]
-    pub domain: Domain,
-}
-
-mod domain_serde {
-    use super::Domain;
-    use serde::{Deserialize, Deserializer, Serializer};
-
-    pub fn serialize<S>(domain: &Domain, serializer: S) -> std::result::Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let s = match domain {
-            Domain::System => "system",
-            Domain::User(_) => "user",
-            Domain::Gui(_) => "gui",
-            Domain::Unknown => "unknown",
-        };
-        serializer.serialize_str(s)
-    }
-
-    pub fn deserialize<'de, D>(deserializer: D) -> std::result::Result<Domain, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let s = String::deserialize(deserializer)?;
-        // Return Domain without uid - uid will be added when creating PlistDir
-        match s.as_str() {
-            "system" => Ok(Domain::System),
-            "user" => Ok(Domain::User(0)), // Placeholder, will be replaced
-            "gui" => Ok(Domain::Gui(0)),   // Placeholder, will be replaced
-            "unknown" => Ok(Domain::Unknown),
-            _ => Ok(Domain::Unknown),
-        }
-    }
+    pub domain: ConfigDomain,
 }
 
 impl Config {

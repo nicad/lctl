@@ -1,14 +1,8 @@
 use crate::angel::{angel_domain_dirs, get_angel_dir};
+use crate::cli::CheatsheetSubcommand;
 use crate::output::stdout;
 use crate::styles;
 use crate::types::Domain;
-use clap::Subcommand;
-
-#[derive(Subcommand)]
-pub enum CheatsheetSubcommand {
-    /// Show information about launchd domains
-    Domains,
-}
 
 pub fn run(subcommand: &CheatsheetSubcommand) {
     match subcommand {

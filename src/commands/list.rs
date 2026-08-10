@@ -1,18 +1,10 @@
 use crate::angel::Angel;
-use crate::cli::ListArgs;
+use crate::cli::{ListArgs, SortBy};
 use crate::error::Result;
 use crate::output;
 use crate::output::stdout;
 use crate::styles;
 use crate::types::ForWhom;
-use clap::ValueEnum;
-
-#[derive(Clone, ValueEnum)]
-pub enum SortBy {
-    Parent,
-    Domain,
-    Name,
-}
 
 pub fn run(angel: &Angel, args: &ListArgs) -> Result<()> {
     let query = args.pattern.as_deref().unwrap_or("");
