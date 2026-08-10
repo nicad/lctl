@@ -1,6 +1,7 @@
 use crate::error::{Error, Result, err_msg};
 use crate::output;
 use crate::styles;
+use crate::sudo;
 use crate::types::{Daemon, Domain};
 use crossterm::style::Color;
 use std::process::Command;
@@ -46,6 +47,10 @@ impl LaunchctlOutput {
 
         Ok(&self.stdout)
     }
+
+    fn looks_like_needs_root(&self) -> bool {
+        sudo::looks_like_needs_root(&self.stdout, &self.stderr)
+    }
 }
 
 pub fn bootstrap(daemon: &Daemon) -> Result<LaunchctlOutput> {
@@ -55,7 +60,9 @@ pub fn bootstrap(daemon: &Daemon) -> Result<LaunchctlOutput> {
         .ok_or_else(|| Error::InvalidInput(err_msg!("Invalid source path encoding")))?;
     let domain = daemon.domain.to_string();
     let res = launchctl_exec(&["bootstrap", &domain, path]);
-    if res.as_ref().is_ok_and(|result| result.stdout.contains("Input/output error")) {
+    if res.as_ref().is_ok_and(|result| {
+        result.stdout.contains("Input/output error") || result.stderr.contains("Input/output error")
+    }) {
         if matches!(daemon.domain, Domain::User(_)) {
             output::stdout::hint(
                 "The user domain is for background sessions. If this isn't a background session, use the GUI domain.",
@@ -94,14 +101,40 @@ pub fn print(target: &str) -> Result<LaunchctlOutput> {
 }
 
 fn launchctl_exec(args: &[&str]) -> Result<LaunchctlOutput> {
-    let mut cmd = Command::new("launchctl");
+    let first = run_launchctl(args, false)?;
 
+    if first.success() || !first.looks_like_needs_root() || sudo::is_root() || !sudo::stdin_is_tty()
+    {
+        return Ok(first);
+    }
+
+    // TTY + need-root: suppress first failure, prompt, retry with sudo -n.
     if output::is_verbose() {
-        let cmd_str = format!("launchctl {}", args.join(" "));
+        output::stdout::writelogln(
+            styles::prefix(Color::Yellow, "HINT"),
+            "launchctl needs root; prompting for sudo then retrying",
+        );
+    }
+
+    sudo::ensure_elevated()?;
+    run_launchctl(args, true)
+}
+
+fn run_launchctl(args: &[&str], elevated: bool) -> Result<LaunchctlOutput> {
+    if output::is_verbose() {
+        let cmd_str = if elevated {
+            format!("sudo -n launchctl {}", args.join(" "))
+        } else {
+            format!("launchctl {}", args.join(" "))
+        };
         output::stdout::writelogln(styles::prefix(Color::Blue, "CMD"), styles::command(&cmd_str));
     }
 
-    let output = cmd.args(args).output()?;
+    let output = if elevated {
+        sudo::sudo_n("launchctl").args(args).output()?
+    } else {
+        Command::new("launchctl").args(args).output()?
+    };
 
     Ok(LaunchctlOutput {
         stdout: String::from_utf8_lossy(&output.stdout).to_string(),

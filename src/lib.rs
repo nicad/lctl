@@ -8,6 +8,7 @@ pub mod launchctl;
 pub mod output;
 pub mod parser;
 pub mod styles;
+pub mod sudo;
 pub mod types;
 pub mod utils;
 

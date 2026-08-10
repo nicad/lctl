@@ -4,6 +4,7 @@ use crate::error::{Error, Result, err_msg};
 use crate::launchctl;
 use crate::output::{is_verbose, stderr, stdout};
 use crate::styles;
+use crate::sudo;
 use crate::types::{Daemon, Domain, ForWhom, Plist};
 use crate::utils;
 use nix::fcntl::{AT_FDCWD, AtFlags};
@@ -133,10 +134,39 @@ fn install_file(
     target_path: &Path,
     domain: &Domain,
 ) -> Result<()> {
-    confirm_overwrite(target_path)?;
+    let system = matches!(domain, Domain::System);
+    confirm_overwrite(target_path, system)?;
 
-    if *strategy != InstallStrategy::Copy && *domain == Domain::System {
+    if *strategy != InstallStrategy::Copy && system {
         set_system_permissions(source_path)?;
+    }
+
+    place_file(strategy, source_path, target_path, system)?;
+
+    if *strategy != InstallStrategy::Move && system {
+        set_system_permissions(target_path)?;
+    }
+
+    Ok(())
+}
+
+fn place_file(
+    strategy: &InstallStrategy,
+    source_path: &Path,
+    target_path: &Path,
+    system: bool,
+) -> Result<()> {
+    if system && !sudo::is_root() {
+        let src = path_str(source_path)?;
+        let dest = path_str(target_path)?;
+        match strategy {
+            InstallStrategy::Symlink => {
+                sudo::require_sudo_n(&["ln", "-sf", src, dest], "symlink install")?
+            }
+            InstallStrategy::Move => sudo::require_sudo_n(&["mv", src, dest], "move install")?,
+            InstallStrategy::Copy => sudo::require_sudo_n(&["cp", src, dest], "copy install")?,
+        }
+        return Ok(());
     }
 
     match strategy {
@@ -144,15 +174,10 @@ fn install_file(
         InstallStrategy::Move => std::fs::rename(source_path, target_path)?,
         InstallStrategy::Copy => std::fs::copy(source_path, target_path).map(|_| ())?,
     }
-
-    if *strategy != InstallStrategy::Move && *domain == Domain::System {
-        set_system_permissions(target_path)?;
-    }
-
     Ok(())
 }
 
-fn confirm_overwrite(target_path: &Path) -> Result<()> {
+fn confirm_overwrite(target_path: &Path, system: bool) -> Result<()> {
     // Use symlink_metadata, not exists(): exists() is false for dangling symlinks,
     // but symlink() still fails with EEXIST if that path is occupied.
     if target_path.symlink_metadata().is_err() {
@@ -167,7 +192,15 @@ fn confirm_overwrite(target_path: &Path) -> Result<()> {
             styles::display_source_path(target_path, is_verbose())
         )));
     }
-    std::fs::remove_file(target_path)?;
+    remove_path(target_path, system)
+}
+
+fn remove_path(path: &Path, system: bool) -> Result<()> {
+    if system && !sudo::is_root() {
+        sudo::require_sudo_n(&["rm", "-f", path_str(path)?], "remove existing install")?;
+        return Ok(());
+    }
+    std::fs::remove_file(path)?;
     Ok(())
 }
 
@@ -202,8 +235,9 @@ fn get_domain_selection(
         )));
     }
 
-    if matches!(selected_domain, Domain::System) && !angel.is_root() {
-        return Err(Error::NeedsRoot);
+    if matches!(selected_domain, Domain::System) {
+        // Prompt on TTY when needed; non-TTY without root → NeedsRoot.
+        sudo::ensure_elevated()?;
     }
 
     Ok(selected_domain)
@@ -223,13 +257,22 @@ fn make_target_path(angel: &Angel, domain: &Domain, service_name: &str) -> Resul
 }
 
 fn set_system_permissions(path: &Path) -> Result<()> {
-    // sudo chown root:wheel
-    let uid = Uid::from_raw(0); // root = 0
-    let gid = Gid::from_raw(0); // wheel = 0
-    fchownat(AT_FDCWD, path, Some(uid), Some(gid), AtFlags::AT_SYMLINK_NOFOLLOW)?;
+    if sudo::is_root() {
+        let uid = Uid::from_raw(0); // root = 0
+        let gid = Gid::from_raw(0); // wheel = 0
+        fchownat(AT_FDCWD, path, Some(uid), Some(gid), AtFlags::AT_SYMLINK_NOFOLLOW)?;
 
-    // sudo chmod 644
-    let mode = Mode::S_IRUSR | Mode::S_IWUSR | Mode::S_IRGRP | Mode::S_IROTH; // 644
-    fchmodat(AT_FDCWD, path, mode, FchmodatFlags::FollowSymlink)?;
+        let mode = Mode::S_IRUSR | Mode::S_IWUSR | Mode::S_IRGRP | Mode::S_IROTH; // 644
+        fchmodat(AT_FDCWD, path, mode, FchmodatFlags::FollowSymlink)?;
+        return Ok(());
+    }
+
+    let path_str = path_str(path)?;
+    sudo::require_sudo_n(&["chown", "-h", "root:wheel", path_str], "chown root:wheel")?;
+    sudo::require_sudo_n(&["chmod", "644", path_str], "chmod 644")?;
     Ok(())
+}
+
+fn path_str(path: &Path) -> Result<&str> {
+    path.to_str().ok_or_else(|| Error::InvalidInput(err_msg!("Invalid path encoding")))
 }
