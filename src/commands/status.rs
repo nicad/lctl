@@ -123,7 +123,7 @@ fn format_value_for_display(value: &ServiceItem<&str>) -> String {
             let formatted: Vec<String> = items.iter().map(format_value_for_display).collect();
             format!("[{}]", formatted.join(", "))
         }
-        ServiceItem::Dict(_) => unreachable!("Dicts are handled by create_nested_table()"),
+        ServiceItem::Dict(items) => create_nested_table(items),
         ServiceItem::KeyValue(_, v) => format_value_for_display(v),
     }
 }
