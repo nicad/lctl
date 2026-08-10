@@ -106,9 +106,10 @@ fn kill_running_service(angel: &Angel, service_name: &str) -> Result<()> {
         Err(e) => return Err(e),
     };
     confirm_kill_running_service(&daemon)?;
-    launchctl::disable(daemon)?; // disable before bootout to prevent restart when keepAlive = true
-    launchctl::bootout(daemon)?;
-    launchctl::enable(daemon)?;
+    // disable before bootout to prevent restart when keepAlive = true
+    launchctl::disable(daemon)?.require_ok(&format!("disable {}", daemon.name))?;
+    launchctl::bootout(daemon)?.require_ok(&format!("bootout {}", daemon.name))?;
+    launchctl::enable(daemon)?.require_ok(&format!("enable {}", daemon.name))?;
     Ok(())
 }
 
