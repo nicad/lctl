@@ -1,6 +1,5 @@
 pub(crate) mod bootout;
 pub(crate) mod bootstrap;
-pub(crate) mod cheatsheet;
 pub(crate) mod disable;
 pub(crate) mod enable;
 pub(crate) mod install;

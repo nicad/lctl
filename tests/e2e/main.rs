@@ -5,7 +5,6 @@ mod harness;
 
 mod bootstrap;
 mod bootout;
-mod cheatsheet;
 mod disable;
 mod enable;
 mod install;

@@ -23,10 +23,7 @@ pub fn run() -> Result<()> {
 
     output::init(cli.verbose, cli.yes);
 
-    match cli.command {
-        Commands::Cheatsheet { subcommand } => commands::cheatsheet::run(&subcommand),
-        command => dispatch(&Angel::load()?, command),
-    }
+    dispatch(&Angel::load()?, cli.command)
 }
 
 fn dispatch(angel: &Angel, command: Commands) -> Result<()> {
@@ -46,10 +43,6 @@ fn dispatch(angel: &Angel, command: Commands) -> Result<()> {
         Commands::Enable(args) => commands::enable::run(angel, &args),
         Commands::Disable(args) => commands::disable::run(angel, &args),
         Commands::Print(args) => commands::print::run(angel, &args),
-        Commands::Cheatsheet { .. } => {
-            // Handled in run() before Angel::load.
-            Ok(())
-        }
     }
 }
 

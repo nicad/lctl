@@ -45,12 +45,6 @@ pub enum InstallDomain {
     System,
 }
 
-#[derive(Subcommand)]
-pub enum CheatsheetSubcommand {
-    /// Show information about launchd domains
-    Domains,
-}
-
 #[derive(Args)]
 pub struct ListArgs {
     /// Pattern to match
@@ -183,9 +177,4 @@ pub enum Commands {
     Disable(NameArgs),
     /// Print service information (launchctl print wrapper)
     Print(NameArgs),
-    /// Show helpful reference information
-    Cheatsheet {
-        #[command(subcommand)]
-        subcommand: CheatsheetSubcommand,
-    },
 }
