@@ -57,6 +57,7 @@ fn service_target_formats_domain_and_name() {
         plist: None,
         pid: None,
         last_exit_code: None,
+        loaded: false,
     };
     assert_eq!(daemon.service_target(), "gui/501/com.example.svc");
 }
@@ -90,6 +91,7 @@ fn require_source_path_errors_when_missing() {
         plist: None,
         pid: None,
         last_exit_code: None,
+        loaded: false,
     };
     assert!(daemon.require_source_path().is_err());
 }

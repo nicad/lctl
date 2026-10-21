@@ -108,6 +108,8 @@ pub struct Daemon {
     pub plist: Option<Plist>,
     pub pid: Option<u32>,
     pub last_exit_code: Option<String>,
+    /// Bootstrapped in launchd (listed by `launchctl print <domain>`).
+    pub loaded: bool,
 }
 
 impl Daemon {
@@ -134,6 +136,7 @@ impl Daemon {
             plist: Some(plist),
             pid: None,
             last_exit_code: None,
+            loaded: false,
         }
     }
 

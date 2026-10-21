@@ -3,16 +3,13 @@
 mod fixtures;
 mod harness;
 
-mod bootout;
-mod bootstrap;
 mod disable;
 mod enable;
 mod install;
 mod list;
 mod logs;
 mod plist;
-mod print;
-mod reboot;
+mod reload;
 mod restart;
 mod start;
 mod status;

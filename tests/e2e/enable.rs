@@ -1,7 +1,7 @@
 use crate::harness::{self, TempServiceBuilder};
 
 #[test]
-fn enable_clears_disabled_domain_entry() {
+fn enable_clears_disabled_entry_and_loads() {
     harness::require_macos();
     let mut svc = TempServiceBuilder::gui("enable").sleep().build();
     svc.install_via_lctl();
@@ -18,6 +18,7 @@ fn enable_clears_disabled_domain_entry() {
     svc.disabled = false;
 
     harness::assert_enabled(&svc.label);
+    harness::assert_loaded(&svc.target);
 
     harness::lctl().args(["start", "-e", &svc.label]).assert().success();
     harness::assert_running(&svc.target);
@@ -25,7 +26,7 @@ fn enable_clears_disabled_domain_entry() {
 
 #[test]
 #[ignore = "system domain; run: sudo -v && cargo e2e-all"]
-fn system_enable_clears_disabled_domain_entry() {
+fn system_enable_clears_disabled_entry_and_loads() {
     harness::require_root_e2e();
     let mut svc = TempServiceBuilder::system("enable").sleep().build();
     svc.install_via_lctl();
@@ -42,6 +43,7 @@ fn system_enable_clears_disabled_domain_entry() {
     svc.disabled = false;
 
     harness::assert_enabled_system(&svc.label);
+    harness::assert_loaded_sudo(&svc.target);
 
     harness::lctl_sudo().args(["start", "-e", &svc.label]).assert().success();
     harness::assert_running_sudo(&svc.target);

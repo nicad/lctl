@@ -40,9 +40,25 @@ Print version.
 .El
 .Sh COMMANDS
 .Ss install
-Install a service from a plist file (or resolve an existing daemon / bare
-.Pa .plist
-filename).
+Place a plist at
+.Pa ~/Library/LaunchAgents/<label>.plist
+.Pq Ar gui , Ar user
+or
+.Pa /Library/LaunchDaemons/<label>.plist
+.Pq Ar system
+and load it
+.Pq Cm launchctl bootstrap .
+If a service with the same label is loaded, it is unloaded first
+.Pq Cm launchctl disable , bootout , enable
+after confirmation.
+For
+.Ar system ,
+the plist is made
+.Ql root:wheel 644 ;
+with the default symlink strategy that applies to your source file.
+.Ar path
+may also be the name of a plist in the lctl directory
+.Pq see Sx CONFIGURATION .
 .Pp
 .Nm
 .Cm install
@@ -65,79 +81,64 @@ or
 Skips interactive domain selection.
 .El
 .Ss uninstall
-Uninstall a service.
+Unload the service
+.Pq Cm launchctl bootout , No best-effort ,
+delete its plist (only the link if it is a symlink), and clear any disabled
+flag
+.Pq Cm launchctl enable , No best-effort .
+Deleting a plist in
+.Pa /Library/LaunchDaemons
+needs root: run it under
+.Xr sudo 8 .
 .Pp
 .Nm
 .Cm uninstall
 .Op Fl e | Fl \-exact
 .Ar name
 .Ss start
-Start a service.
-Alias:
-.Cm kickstart .
+Start a service, loading it first
+.Pq Cm launchctl bootstrap
+if launchd does not have it loaded.
 .Pp
 .Nm
 .Cm start
 .Op Fl e | Fl \-exact
-.Op Fl k | Fl \-kill
 .Ar name
-.Bl -tag -width Ds
-.It Fl k , Fl \-kill
-Kill any existing instance before starting.
-.El
 .Ss stop
-Stop a service.
-Alias:
-.Cm kill .
+Stop and unload a service
+.Pq Cm launchctl bootout .
+It stays stopped even with
+.Cm KeepAlive ,
+until it is started again or, for plists in a standard Launch* directory,
+until the next login or boot.
 .Pp
 .Nm
 .Cm stop
 .Op Fl e | Fl \-exact
-.Op Fl s | Fl \-signal Ar signal
 .Ar name
-.Bl -tag -width Ds
-.It Fl s , Fl \-signal Ar signal
-Signal to send:
-.Ar sigterm
-(default),
-.Ar sigkill ,
-.Ar sighup ,
-or
-.Ar sigint .
-.El
 .Ss restart
-Restart a service.
-Alias:
-.Cm kkill .
+Restart a service
+.Pq Cm launchctl kickstart -k .
+If it is not loaded, behave like
+.Cm start .
 .Pp
 .Nm
 .Cm restart
 .Op Fl e | Fl \-exact
 .Ar name
-.Ss reboot
-Boot out then bootstrap the service.
-Reloads the plist from disk (picks up symlink target changes).
+.Ss reload
+Unload and load the service again.
+Picks up plist edits and symlink target changes.
 .Pp
 .Nm
-.Cm reboot
-.Op Fl e | Fl \-exact
-.Ar name
-.Ss bootstrap
-Bootstrap a service into launchd.
-.Pp
-.Nm
-.Cm bootstrap
-.Op Fl e | Fl \-exact
-.Ar name
-.Ss bootout
-Remove a service from launchd (bootout).
-.Pp
-.Nm
-.Cm bootout
+.Cm reload
 .Op Fl e | Fl \-exact
 .Ar name
 .Ss status
-Show service status.
+Show service status parsed from
+.Cm launchctl print ,
+or
+.Dq not loaded .
 .Pp
 .Nm
 .Cm status
@@ -151,7 +152,13 @@ Show raw
 output and parsed data.
 .El
 .Ss logs
-Show service logs.
+Show the last 50 lines of the plist's
+.Cm StandardOutPath
+and
+.Cm StandardErrorPath
+files, and of the unified log
+.Pq Xr log 1 Cm show
+for the service's program.
 .Pp
 .Nm
 .Cm logs
@@ -169,6 +176,8 @@ Default:
 .El
 .Ss list
 List services.
+By default only services that are running, have a plist on disk, and are not
+Apple's.
 Alias:
 .Cm ls .
 .Pp
@@ -182,11 +191,11 @@ Alias:
 .Op Ar pattern
 .Bl -tag -width Ds
 .It Fl a , Fl \-apple
-Include Apple daemons.
+Include Apple services.
 .It Fl d , Fl \-dynamic
-Include dynamically loaded daemons.
+Include services without a plist on disk.
 .It Fl i , Fl \-idle
-Include idle daemons (no pid).
+Include services that are not running.
 .It Fl s , Fl \-sort Ar field
 Sort by
 .Ar parent ,
@@ -196,32 +205,27 @@ or
 (default).
 .El
 .Ss plist
-Print a service's plist.
+Print the service's plist file (text plists only).
 .Pp
 .Nm
 .Cm plist
 .Op Fl e | Fl \-exact
 .Ar name
 .Ss enable
-Enable a service.
+Clear the disabled override and load the service.
+Persists across reboots.
 .Pp
 .Nm
 .Cm enable
 .Op Fl e | Fl \-exact
 .Ar name
 .Ss disable
-Disable a service.
+Set the disabled override and unload the service.
+Persists across reboots until
+.Cm enable .
 .Pp
 .Nm
 .Cm disable
-.Op Fl e | Fl \-exact
-.Ar name
-.Ss print
-Print service information
-.Pq Xr launchctl 1 Cm print wrapper .
-.Pp
-.Nm
-.Cm print
 .Op Fl e | Fl \-exact
 .Ar name
 .Sh COMMON OPTIONS
@@ -337,7 +341,7 @@ lctl stop my.service
 .Pp
 Reload a service after editing a symlinked plist:
 .Bd -literal -offset indent
-lctl reboot my.service
+lctl reload my.service
 .Ed
 .Sh SEE ALSO
 .Xr launchctl 1 ,

@@ -41,7 +41,11 @@ fn parse_service_line(input: &[u8]) -> IResult<&[u8], DomainService> {
     let (input, exit_code_bytes) = terminated(non_whitespace1, multispace1).parse(input)?;
     let (input, label_bytes) = terminated(non_whitespace1, multispace0).parse(input)?;
 
-    let pid = std::str::from_utf8(pid_bytes).ok().and_then(|s| s.parse::<u32>().ok());
+    // Not-running services are listed with pid `-` or `0`.
+    let pid = std::str::from_utf8(pid_bytes)
+        .ok()
+        .and_then(|s| s.parse::<u32>().ok())
+        .filter(|&pid| pid != 0);
     let last_exit_code = std::str::from_utf8(exit_code_bytes).ok().map(|s| s.to_string());
     let name = String::from_utf8_lossy(label_bytes).trim().to_string();
 

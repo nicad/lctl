@@ -35,14 +35,14 @@ fn system_install_after_sudo_k_prompts_and_succeeds() {
     harness::assert_not_running_sudo(&svc.target);
 }
 
-/// Same clear-and-prompt path, but via launchctl retry (bootout) rather than install FS ops.
+/// Same clear-and-prompt path, but via launchctl retry (stop) rather than install FS ops.
 #[test]
 #[ignore = "system domain; interactive sudo — run: sudo -v && cargo e2e-all"]
-fn system_bootout_after_sudo_k_prompts_and_succeeds() {
+fn system_stop_after_sudo_k_prompts_and_succeeds() {
     harness::require_interactive_sudo_e2e();
     harness::require_root_e2e();
 
-    let svc = TempServiceBuilder::system("bootout-sudo-prompt").build();
+    let svc = TempServiceBuilder::system("stop-sudo-prompt").build();
     svc.install_via_lctl();
     harness::assert_loaded_sudo(&svc.target);
 
@@ -51,8 +51,8 @@ fn system_bootout_after_sudo_k_prompts_and_succeeds() {
 
     eprintln!("\n=== lctl will prompt for your password (launchctl auto-elevate) — enter it ===\n");
 
-    let status = harness::lctl_tty_status(&["bootout", "-e", &svc.label]);
-    assert!(status.success(), "lctl system bootout should succeed after interactive sudo");
+    let status = harness::lctl_tty_status(&["stop", "-e", &svc.label]);
+    assert!(status.success(), "lctl system stop should succeed after interactive sudo");
 
     assert!(harness::sudo_n_ok(), "interactive sudo should leave a warm ticket");
     harness::assert_not_loaded_sudo(&svc.target);

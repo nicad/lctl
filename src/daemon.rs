@@ -158,6 +158,7 @@ impl DaemonRegistry {
                         daemon.domain = domain;
                         daemon.pid = service.pid;
                         daemon.last_exit_code = service.last_exit_code;
+                        daemon.loaded = true;
                     } else {
                         let for_use_by = if service.name.contains("com.apple") {
                             ForWhom::Apple
@@ -173,6 +174,7 @@ impl DaemonRegistry {
                             plist: None,
                             pid: service.pid,
                             last_exit_code: service.last_exit_code,
+                            loaded: true,
                         };
                         map.insert(name, daemon);
                     }

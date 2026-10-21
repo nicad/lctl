@@ -36,8 +36,7 @@ pub(crate) fn run(lctl: &Lctl, args: &InstallArgs) -> Result<()> {
     let target_path = make_target_path(lctl, &selected_domain, &service_name)?;
     install_file(&args.strategy, &source_path, &target_path, &selected_domain)?;
 
-    // kill running service if it is running
-    kill_running_service(lctl, &service_name)?;
+    unload_existing_service(lctl, &service_name)?;
 
     let daemon = Daemon::from_plist(
         plist_data,
@@ -96,32 +95,26 @@ fn infer_domain_from_lctl_path(lctl: &Lctl, resolved: &Path) -> Option<Domain> {
     None
 }
 
-fn kill_running_service(lctl: &Lctl, service_name: &str) -> Result<()> {
+fn unload_existing_service(lctl: &Lctl, service_name: &str) -> Result<()> {
     let daemon = match super::resolve_daemon(lctl, service_name, true) {
-        Ok(daemon) => match daemon.pid {
-            Some(_) => daemon,
-            None => return Ok(()), // not running. proceed.
-        },
-        Err(Error::NotFound(_)) => return Ok(()), // not found. proceed.
+        Ok(daemon) if daemon.loaded => daemon,
+        Ok(_) | Err(Error::NotFound(_)) => return Ok(()), // not loaded. proceed.
         Err(e) => return Err(e),
     };
-    confirm_kill_running_service(&daemon)?;
-    // disable before bootout to prevent restart when keepAlive = true
-    launchctl::disable(daemon)?.require_ok(&format!("disable {}", daemon.name))?;
-    launchctl::bootout(daemon)?.require_ok(&format!("bootout {}", daemon.name))?;
-    launchctl::enable(daemon)?.require_ok(&format!("enable {}", daemon.name))?;
-    Ok(())
+    confirm_unload_existing_service(daemon)?;
+    super::disable_and_unload(daemon)?;
+    super::step(daemon, launchctl::enable, "enable")
 }
 
-fn confirm_kill_running_service(daemon: &Daemon) -> Result<()> {
+fn confirm_unload_existing_service(daemon: &Daemon) -> Result<()> {
     if utils::confirm(&format!(
-        "A service with the name {} is already running. Run bootout?",
+        "A service with the name {} is already loaded. Unload it?",
         daemon.name
     ))? {
         Ok(())
     } else {
         Err(Error::InvalidInput(err_msg!(
-            "A service with the name {} is already running. Bootstrap will fail.",
+            "A service with the name {} is already loaded. Bootstrap will fail.",
             daemon.name
         )))
     }

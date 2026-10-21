@@ -4,5 +4,17 @@ use crate::launchctl;
 use crate::lctl::Lctl;
 
 pub(crate) fn run(lctl: &Lctl, args: &NameArgs) -> Result<()> {
-    super::run_launchctl(lctl, args, launchctl::kickstart_kill, "restart", "restarted")
+    super::run_steps(
+        lctl,
+        args,
+        |daemon| {
+            if daemon.loaded {
+                return super::step(daemon, launchctl::kickstart_kill, "restart");
+            }
+            // -k right after bootstrap would kill a process RunAtLoad just started
+            super::step(daemon, launchctl::bootstrap, "bootstrap")?;
+            super::step(daemon, launchctl::kickstart, "restart")
+        },
+        "restarted",
+    )
 }

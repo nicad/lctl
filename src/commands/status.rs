@@ -5,11 +5,20 @@ use crate::lctl::Lctl;
 use crate::output::stdout;
 use crate::parser::{self, ServiceItem};
 use crate::styles;
+use crate::types::Daemon;
 use comfy_table::Table;
 use crossterm::style::Color;
 
 pub(crate) fn run(lctl: &Lctl, args: &StatusArgs) -> Result<()> {
     let daemon = super::resolve_daemon(lctl, &args.target.name, args.target.exact)?;
+
+    if !daemon.loaded {
+        print_header(daemon, "not loaded");
+        let mut table = styles::create_table();
+        add_source_row(&mut table, daemon);
+        stdout::writeln(&table);
+        return Ok(());
+    }
 
     // Get launchctl result once (reuse for debug and parsing)
     let result = launchctl::print(&daemon.service_target())?;
@@ -40,10 +49,7 @@ pub(crate) fn run(lctl: &Lctl, args: &StatusArgs) -> Result<()> {
             _ => None,
         })
         .unwrap_or("unknown");
-    let color = if status == "running" { None } else { Some(Color::Red) };
-
-    stdout::writeln(&styles::prefix(Color::Blue, &daemon.name));
-    stdout::writeln(&styles::format_status_dot(status, color));
+    print_header(daemon, status);
 
     let mut table = styles::create_table();
     let mut shown_fields = std::collections::HashSet::new();
@@ -53,9 +59,7 @@ pub(crate) fn run(lctl: &Lctl, args: &StatusArgs) -> Result<()> {
     add_field_if_present(&mut table, &parsed, &mut shown_fields, "path", "Path");
     add_field_if_present(&mut table, &parsed, &mut shown_fields, "program", "Program");
 
-    if daemon.source_path.is_some() {
-        table.add_row(vec!["Source".to_string(), styles::display_path(daemon, true)]);
-    }
+    add_source_row(&mut table, daemon);
 
     format_arguments(&mut table, &parsed, &mut shown_fields);
 
@@ -79,6 +83,18 @@ pub(crate) fn run(lctl: &Lctl, args: &StatusArgs) -> Result<()> {
 
     stdout::writeln(&table);
     Ok(())
+}
+
+fn print_header(daemon: &Daemon, status: &str) {
+    let color = if status == "running" { None } else { Some(Color::Red) };
+    stdout::writeln(&styles::prefix(Color::Blue, &daemon.name));
+    stdout::writeln(&styles::format_status_dot(status, color));
+}
+
+fn add_source_row(table: &mut Table, daemon: &Daemon) {
+    if daemon.source_path.is_some() {
+        table.add_row(vec!["Source".to_string(), styles::display_path(daemon, true)]);
+    }
 }
 
 fn add_field_if_present<'a>(

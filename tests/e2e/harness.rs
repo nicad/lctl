@@ -440,6 +440,14 @@ impl TempService {
         }
     }
 
+    /// Copy plist into LaunchAgents without loading it.
+    pub fn place_gui_plist_unloaded(&self) {
+        assert!(!self.system, "place_gui_plist_unloaded is gui-only");
+        std::fs::create_dir_all(agents_dir()).ok();
+        std::fs::copy(&self.fixture_plist, &self.installed_plist).expect("place plist");
+        let _ = launchctl(&["bootout", &self.target]);
+    }
+
     /// Place plist into LaunchDaemons as root-owned symlink (not loaded).
     pub fn place_system_plist_unloaded(&self) {
         assert!(self.system, "place_system_plist_unloaded is system-only");

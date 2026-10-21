@@ -19,6 +19,20 @@ fn status_shows_running_state() {
 }
 
 #[test]
+fn status_reports_not_loaded() {
+    harness::require_macos();
+    let svc = TempServiceBuilder::gui("status-unloaded").build();
+    svc.place_gui_plist_unloaded();
+
+    harness::lctl()
+        .args(["status", "-e", &svc.label])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains(&svc.label))
+        .stdout(predicates::str::contains("not loaded"));
+}
+
+#[test]
 #[ignore = "system domain; run: sudo -v && cargo e2e-all"]
 fn system_status_shows_running_state() {
     harness::require_root_e2e();

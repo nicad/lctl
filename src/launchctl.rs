@@ -94,10 +94,6 @@ pub fn kickstart_kill(daemon: &Daemon) -> Result<LaunchctlOutput> {
     launchctl_exec(&["kickstart", "-k", &daemon.service_target()])
 }
 
-pub fn kill(daemon: &Daemon, signal: &str) -> Result<LaunchctlOutput> {
-    launchctl_exec(&["kill", signal, &daemon.service_target()])
-}
-
 pub fn print(target: &str) -> Result<LaunchctlOutput> {
     launchctl_exec(&["print", target])
 }

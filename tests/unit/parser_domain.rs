@@ -33,6 +33,18 @@ fn parses_services_block() {
 }
 
 #[test]
+fn zero_pid_means_not_running() {
+    let input = br#"system = {
+	services = {
+		       0      - 	com.example.stopped
+	}
+}
+"#;
+    let services = parse_domain_output(input).unwrap();
+    assert_eq!(services[0].pid, None);
+}
+
+#[test]
 fn rejects_missing_services_block() {
     let input = b"gui/501 = {\n\ttype = prompt\n}\n";
     assert!(parse_domain_output(input).is_err());

@@ -1,5 +1,4 @@
 use clap::{Args, Parser, Subcommand, ValueEnum};
-use std::fmt;
 
 #[derive(Parser)]
 #[command(name = "lctl")]
@@ -52,13 +51,13 @@ pub struct ListArgs {
     /// Exact match
     #[arg(short, long)]
     pub exact: bool,
-    /// Show Apple daemons
+    /// Also show Apple services
     #[arg(short = 'a', long = "apple")]
     pub show_apple: bool,
-    /// Show dynamically loaded daemons
+    /// Also show services without a plist on disk
     #[arg(short = 'd', long = "dynamic")]
     pub show_dynamic: bool,
-    /// Show idle daemons (have no pid)
+    /// Also show services that are not running
     #[arg(short = 'i', long = "idle")]
     pub show_idle: bool,
     /// Field to sort by
@@ -76,51 +75,6 @@ pub struct InstallArgs {
     /// Target domain (skips interactive domain selection)
     #[arg(long)]
     pub domain: Option<InstallDomain>,
-}
-
-#[derive(Clone, ValueEnum)]
-pub enum Signal {
-    /// Graceful termination (default)
-    #[value(name = "sigterm")]
-    SigTerm,
-    /// Force immediate termination
-    #[value(name = "sigkill")]
-    SigKill,
-    /// Hangup signal (often used for reload)
-    #[value(name = "sighup")]
-    SigHup,
-    /// Interrupt signal
-    #[value(name = "sigint")]
-    SigInt,
-}
-
-impl fmt::Display for Signal {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Signal::SigTerm => write!(f, "sigterm"),
-            Signal::SigKill => write!(f, "sigkill"),
-            Signal::SigHup => write!(f, "sighup"),
-            Signal::SigInt => write!(f, "sigint"),
-        }
-    }
-}
-
-#[derive(Args)]
-pub struct StartArgs {
-    #[command(flatten)]
-    pub target: NameArgs,
-    /// Kill existing instance before starting
-    #[arg(short, long)]
-    pub kill: bool,
-}
-
-#[derive(Args)]
-pub struct StopArgs {
-    #[command(flatten)]
-    pub target: NameArgs,
-    /// Signal to send
-    #[arg(short, long, default_value = "sigterm")]
-    pub signal: Signal,
 }
 
 #[derive(Args)]
@@ -147,21 +101,14 @@ pub enum Commands {
     Install(InstallArgs),
     /// Uninstall a service
     Uninstall(NameArgs),
-    /// Start a service
-    #[command(alias = "kickstart")]
-    Start(StartArgs),
-    /// Stop a service
-    #[command(alias = "kill")]
-    Stop(StopArgs),
-    /// Restart a service
-    #[command(alias = "kkill")]
+    /// Start a service (loads it first if needed)
+    Start(NameArgs),
+    /// Stop and unload a service (it stays stopped until next login/boot)
+    Stop(NameArgs),
+    /// Restart a service (loads it first if needed)
     Restart(NameArgs),
-    /// Boot out then bootstrap (reload plist from disk; picks up symlink target changes)
-    Reboot(NameArgs),
-    /// Bootstrap a service
-    Bootstrap(NameArgs),
-    /// Bootout a service
-    Bootout(NameArgs),
+    /// Unload and load again, picking up plist edits and symlink target changes
+    Reload(NameArgs),
     /// Show service status
     Status(StatusArgs),
     /// Show service logs
@@ -171,12 +118,10 @@ pub enum Commands {
     List(ListArgs),
     /// Print a service's plist
     Plist(NameArgs),
-    /// Enable a service
+    /// Enable a service and load it (persists across reboots)
     Enable(NameArgs),
-    /// Disable a service
+    /// Disable a service and unload it (persists across reboots)
     Disable(NameArgs),
-    /// Print service information (launchctl print wrapper)
-    Print(NameArgs),
     /// Generate shell completions
     Completion {
         /// Shell to generate completions for
