@@ -6,6 +6,8 @@ use crate::types::{Daemon, Domain};
 use crossterm::style::Color;
 use std::process::Command;
 
+const LAUNCHCTL: &str = "/bin/launchctl";
+
 #[derive(Debug)]
 pub struct LaunchctlOutput {
     pub stdout: String,
@@ -121,19 +123,17 @@ fn launchctl_exec(args: &[&str]) -> Result<LaunchctlOutput> {
 }
 
 fn run_launchctl(args: &[&str], elevated: bool) -> Result<LaunchctlOutput> {
-    if output::is_verbose() {
-        let cmd_str = if elevated {
-            format!("sudo -n launchctl {}", args.join(" "))
-        } else {
-            format!("launchctl {}", args.join(" "))
-        };
-        output::stdout::writelogln(styles::prefix(Color::Blue, "CMD"), styles::command(&cmd_str));
-    }
-
     let output = if elevated {
-        sudo::sudo_n("launchctl").args(args).output()?
+        sudo::run_sudo_n(&[&[LAUNCHCTL][..], args].concat())?
     } else {
-        Command::new("launchctl").args(args).output()?
+        if output::is_verbose() {
+            let cmd_str = format!("{LAUNCHCTL} {}", args.join(" "));
+            output::stdout::writelogln(
+                styles::prefix(Color::Blue, "CMD"),
+                styles::command(&cmd_str),
+            );
+        }
+        Command::new(LAUNCHCTL).args(args).output()?
     };
 
     Ok(LaunchctlOutput {

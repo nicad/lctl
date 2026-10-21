@@ -8,7 +8,7 @@ pub struct Config {
     pub directories: Option<Vec<DirectoryConfig>>,
 }
 
-/// Domain kind as written in `.angelrc` (no uid; uid filled at runtime).
+/// Domain kind as written in `.lctlrc` (no uid; uid filled at runtime).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ConfigDomain {
@@ -46,9 +46,9 @@ impl Config {
 
         // Try config file locations
         let config_paths = [
-            home.join(".angelrc"),
-            dirs::config_dir().map(|p| p.join("angel").join(".angelrc")).unwrap_or_default(),
-            home.join(".config").join("angel").join(".angelrc"),
+            home.join(".lctlrc"),
+            dirs::config_dir().map(|p| p.join("lctl").join(".lctlrc")).unwrap_or_default(),
+            home.join(".config").join("lctl").join(".lctlrc"),
         ];
 
         for path in config_paths {

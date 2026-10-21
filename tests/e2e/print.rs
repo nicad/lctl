@@ -4,9 +4,9 @@ use crate::harness::{self, TempServiceBuilder};
 fn print_shows_launchctl_output() {
     harness::require_macos();
     let svc = TempServiceBuilder::gui("print").build();
-    svc.install_via_angel();
+    svc.install_via_lctl();
 
-    harness::angel()
+    harness::lctl()
         .args(["print", "-e", &svc.label])
         .assert()
         .success()
@@ -18,9 +18,9 @@ fn print_shows_launchctl_output() {
 fn system_print_shows_launchctl_output() {
     harness::require_root_e2e();
     let svc = TempServiceBuilder::system("print").build();
-    svc.install_via_angel();
+    svc.install_via_lctl();
 
-    harness::angel_sudo()
+    harness::lctl_sudo()
         .args(["print", "-e", &svc.label])
         .assert()
         .success()

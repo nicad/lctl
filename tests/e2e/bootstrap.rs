@@ -4,12 +4,12 @@ use crate::harness::{self, TempServiceBuilder};
 fn bootstrap_loads_plist_from_disk() {
     harness::require_macos();
     let svc = TempServiceBuilder::gui("bootstrap").build();
-    // Place plist without loading, then bootout any leftover, then angel bootstrap.
+    // Place plist without loading, then bootout any leftover, then lctl bootstrap.
     std::fs::create_dir_all(harness::agents_dir()).ok();
     std::fs::copy(&svc.fixture_plist, &svc.installed_plist).expect("place plist");
     let _ = harness::launchctl(&["bootout", &svc.target]);
 
-    harness::angel()
+    harness::lctl()
         .args(["bootstrap", "-e", &svc.label])
         .assert()
         .success()
@@ -25,7 +25,7 @@ fn system_bootstrap_loads_plist_from_disk() {
     let svc = TempServiceBuilder::system("bootstrap").build();
     svc.place_system_plist_unloaded();
 
-    harness::angel_sudo()
+    harness::lctl_sudo()
         .args(["bootstrap", "-e", &svc.label])
         .assert()
         .success()

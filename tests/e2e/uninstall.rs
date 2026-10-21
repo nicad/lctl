@@ -4,9 +4,9 @@ use crate::harness::{self, TempServiceBuilder};
 fn uninstall_removes_plist_and_unloads() {
     harness::require_macos();
     let svc = TempServiceBuilder::gui("uninstall").build();
-    svc.install_via_angel();
+    svc.install_via_lctl();
 
-    harness::angel()
+    harness::lctl()
         .args(["uninstall", "-e", &svc.label])
         .assert()
         .success()
@@ -21,9 +21,9 @@ fn uninstall_removes_plist_and_unloads() {
 fn system_uninstall_removes_plist_and_unloads() {
     harness::require_root_e2e();
     let svc = TempServiceBuilder::system("uninstall").build();
-    svc.install_via_angel();
+    svc.install_via_lctl();
 
-    harness::angel_sudo()
+    harness::lctl_sudo()
         .args(["uninstall", "-e", &svc.label])
         .assert()
         .success()

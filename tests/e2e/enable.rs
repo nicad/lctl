@@ -4,13 +4,13 @@ use crate::harness::{self, TempServiceBuilder};
 fn enable_clears_disabled_domain_entry() {
     harness::require_macos();
     let mut svc = TempServiceBuilder::gui("enable").sleep().build();
-    svc.install_via_angel();
+    svc.install_via_lctl();
 
-    harness::angel().args(["disable", "-e", &svc.label]).assert().success();
+    harness::lctl().args(["disable", "-e", &svc.label]).assert().success();
     svc.mark_disabled();
     harness::assert_disabled(&svc.label);
 
-    harness::angel()
+    harness::lctl()
         .args(["enable", "-e", &svc.label])
         .assert()
         .success()
@@ -19,7 +19,7 @@ fn enable_clears_disabled_domain_entry() {
 
     harness::assert_enabled(&svc.label);
 
-    harness::angel().args(["start", "-e", &svc.label]).assert().success();
+    harness::lctl().args(["start", "-e", &svc.label]).assert().success();
     harness::assert_running(&svc.target);
 }
 
@@ -28,13 +28,13 @@ fn enable_clears_disabled_domain_entry() {
 fn system_enable_clears_disabled_domain_entry() {
     harness::require_root_e2e();
     let mut svc = TempServiceBuilder::system("enable").sleep().build();
-    svc.install_via_angel();
+    svc.install_via_lctl();
 
-    harness::angel_sudo().args(["disable", "-e", &svc.label]).assert().success();
+    harness::lctl_sudo().args(["disable", "-e", &svc.label]).assert().success();
     svc.mark_disabled();
     harness::assert_disabled_system(&svc.label);
 
-    harness::angel_sudo()
+    harness::lctl_sudo()
         .args(["enable", "-e", &svc.label])
         .assert()
         .success()
@@ -43,6 +43,6 @@ fn system_enable_clears_disabled_domain_entry() {
 
     harness::assert_enabled_system(&svc.label);
 
-    harness::angel_sudo().args(["start", "-e", &svc.label]).assert().success();
+    harness::lctl_sudo().args(["start", "-e", &svc.label]).assert().success();
     harness::assert_running_sudo(&svc.target);
 }

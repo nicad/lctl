@@ -5,7 +5,7 @@ fn install_symlinks_plist_and_loads_service() {
     harness::require_macos();
     let svc = TempServiceBuilder::gui("install").build();
 
-    harness::angel()
+    harness::lctl()
         .args(["install", "--domain", "gui", svc.fixture_plist.to_str().unwrap()])
         .assert()
         .success()
@@ -16,32 +16,32 @@ fn install_symlinks_plist_and_loads_service() {
     harness::assert_not_running(&svc.target);
 }
 
-/// Plists under `{ANGEL_CONFIG_DIR}/gui` (≈ `~/.config/angel/gui`).
+/// Plists under `{LCTL_CONFIG_DIR}/gui` (default `~/Library/Application Support/lctl/gui`).
 /// Fuzzy query matches multiple → select (default / `-y` picks lexicographically first).
 #[test]
-fn install_by_fuzzy_name_from_angel_gui() {
+fn install_by_fuzzy_name_from_lctl_gui() {
     harness::require_macos();
     let mut first = TempServiceBuilder::gui("install-fuzzy-a").build();
     let mut second = TempServiceBuilder::gui("install-fuzzy-b").build();
 
-    let angel_config = first.temp.path().join("angel-config");
-    let gui_dir = angel_config.join("gui");
-    std::fs::create_dir_all(&gui_dir).expect("mkdir angel gui");
+    let lctl_config = first.temp.path().join("lctl-config");
+    let gui_dir = lctl_config.join("gui");
+    std::fs::create_dir_all(&gui_dir).expect("mkdir lctl gui");
 
     for svc in [&mut first, &mut second] {
         let dest = gui_dir.join(format!("{}.plist", svc.label));
-        std::fs::rename(&svc.fixture_plist, &dest).expect("move plist into angel gui");
+        std::fs::rename(&svc.fixture_plist, &dest).expect("move plist into lctl gui");
         svc.fixture_plist = dest;
     }
 
-    // Shared substring; both angel-gui plists match. `-y` takes sorted default (first).
+    // Shared substring; both lctl-gui plists match. `-y` takes sorted default (first).
     let query = "install-fuzzy";
     assert!(first.label.contains(query) && second.label.contains(query));
     let (expected, other) =
         if first.label < second.label { (&first, &second) } else { (&second, &first) };
 
-    harness::angel()
-        .env("ANGEL_CONFIG_DIR", &angel_config)
+    harness::lctl()
+        .env("LCTL_CONFIG_DIR", &lctl_config)
         .args(["install", query])
         .assert()
         .success()
@@ -63,7 +63,7 @@ fn system_install_symlinks_plist_sets_root_ownership_and_loads() {
     harness::require_root_e2e();
     let svc = TempServiceBuilder::system("install").build();
 
-    harness::angel_sudo()
+    harness::lctl_sudo()
         .args(["install", "--domain", "system", svc.fixture_plist.to_str().unwrap()])
         .assert()
         .success()

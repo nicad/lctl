@@ -2,8 +2,8 @@ use clap::{Args, Parser, Subcommand, ValueEnum};
 use std::fmt;
 
 #[derive(Parser)]
-#[command(name = "angel")]
-#[command(about = "The launchctl macOS should've implemented", version = env!("CARGO_PKG_VERSION"))]
+#[command(name = "lctl")]
+#[command(about = "A simpler CLI on top of macOS launchctl", version = env!("CARGO_PKG_VERSION"))]
 pub struct Cli {
     /// Verbose output
     #[arg(short, long)]

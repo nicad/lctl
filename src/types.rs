@@ -37,7 +37,7 @@ pub enum ForWhom {
     User,
     Apple,
     ThirdParty,
-    Angel,
+    Lctl,
 }
 
 /// launchd KeepAlive may be a bool or a dictionary of conditions.

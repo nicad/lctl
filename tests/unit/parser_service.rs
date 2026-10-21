@@ -1,4 +1,4 @@
-use angel::parser::{ServiceItem, parse_print_service};
+use lctl::parser::{ServiceItem, parse_print_service};
 
 #[test]
 fn parses_flat_service_fields() {

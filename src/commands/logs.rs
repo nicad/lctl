@@ -1,6 +1,6 @@
-use crate::angel::Angel;
 use crate::cli::LogsArgs;
 use crate::error::Result;
+use crate::lctl::Lctl;
 use crate::output::stdout;
 use crate::styles;
 use crossterm::style::Color;
@@ -10,8 +10,8 @@ use std::io::BufReader;
 use std::path::Path;
 use std::process::Command;
 
-pub(crate) fn run(angel: &Angel, args: &LogsArgs) -> Result<()> {
-    let daemon = super::resolve_daemon(angel, &args.target.name, args.target.exact)?;
+pub(crate) fn run(lctl: &Lctl, args: &LogsArgs) -> Result<()> {
+    let daemon = super::resolve_daemon(lctl, &args.target.name, args.target.exact)?;
 
     stdout::writeln(&styles::prefix(Color::Blue, &daemon.name));
     stdout::writeln("");
@@ -101,7 +101,7 @@ fn extract_process_name(daemon: &crate::types::Daemon) -> String {
 }
 
 fn get_unified_logs(process_name: &str, time_frame: &str) -> Result<String> {
-    let output = Command::new("log")
+    let output = Command::new("/usr/bin/log")
         .args([
             "show",
             "--predicate",

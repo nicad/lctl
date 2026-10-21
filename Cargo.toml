@@ -1,13 +1,13 @@
 [package]
-    name        = "angel"
+    name        = "lctl"
     version     = "0.1.1"
     edition     = "2024"
-    default-run = "angel"
-    description = "The launchctl macOS should've implemented"
+    default-run = "lctl"
+    description = "A simpler CLI on top of macOS launchctl"
     license     = "MIT"
-    authors     = ["Olivia Bahr <ob.bahr@gmail.com>"]
-    repository  = "https://github.com/oliviaBahr/angel"
-    homepage    = "https://github.com/oliviaBahr/angel"
+    authors     = ["nicad"]
+    repository  = "https://github.com/nicad/lctl"
+    homepage    = "https://github.com/nicad/lctl"
     keywords    = ["macos", "launchctl"]
     categories  = ["command-line-utilities", "os"]
 

@@ -1,4 +1,4 @@
-use angel::types::{Daemon, Domain, ForWhom, Plist};
+use lctl::types::{Daemon, Domain, ForWhom, Plist};
 use std::path::PathBuf;
 
 fn plist_session(session: &str) -> Plist {
@@ -72,12 +72,12 @@ fn from_plist_uses_label_and_session() {
         plist,
         Some(PathBuf::from("/tmp/com.example.fromplist.plist")),
         Domain::System,
-        ForWhom::Angel,
+        ForWhom::Lctl,
         501,
     );
     assert_eq!(daemon.name, "com.example.fromplist");
     assert_eq!(daemon.domain, Domain::Gui(501));
-    assert_eq!(daemon.for_use_by, ForWhom::Angel);
+    assert_eq!(daemon.for_use_by, ForWhom::Lctl);
 }
 
 #[test]

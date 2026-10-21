@@ -5,10 +5,10 @@ fn list_includes_running_service() {
     harness::require_macos();
     // Default list hides idle (no pid) unless `-i`; keep a live sleep job.
     let svc = TempServiceBuilder::gui("list").sleep().run_at_load().build();
-    svc.install_via_angel();
+    svc.install_via_lctl();
     harness::assert_running(&svc.target);
 
-    harness::angel()
+    harness::lctl()
         .args(["list", "-e", &svc.label])
         .assert()
         .success()
@@ -20,10 +20,10 @@ fn list_includes_running_service() {
 fn system_list_includes_running_service() {
     harness::require_root_e2e();
     let svc = TempServiceBuilder::system("list").sleep().run_at_load().build();
-    svc.install_via_angel();
+    svc.install_via_lctl();
     harness::assert_running_sudo(&svc.target);
 
-    harness::angel_sudo()
+    harness::lctl_sudo()
         .args(["list", "-e", &svc.label])
         .assert()
         .success()

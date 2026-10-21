@@ -57,7 +57,7 @@ fn render_plist(spec: &PlistSpec<'_>) -> String {
         ),
         ProgramKind::EchoThenSleep => (
             String::new(),
-            "\t<key>ProgramArguments</key>\n\t<array>\n\t\t<string>/bin/sh</string>\n\t\t<string>-c</string>\n\t\t<string>echo angel-e2e-marker; exec /bin/sleep 999999</string>\n\t</array>\n"
+            "\t<key>ProgramArguments</key>\n\t<array>\n\t\t<string>/bin/sh</string>\n\t\t<string>-c</string>\n\t\t<string>echo lctl-e2e-marker; exec /bin/sleep 999999</string>\n\t</array>\n"
                 .to_string(),
         ),
     };

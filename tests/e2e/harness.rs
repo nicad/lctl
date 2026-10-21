@@ -21,17 +21,17 @@ pub fn uid() -> u32 {
 
 pub fn unique_label(cmd: &str) -> String {
     let n = COUNTER.fetch_add(1, Ordering::Relaxed);
-    format!("com.angel.test.{cmd}.{}.{}", std::process::id(), n)
+    format!("com.lctl.test.{cmd}.{}.{}", std::process::id(), n)
 }
 
-pub fn angel() -> Command {
-    let mut cmd = Command::cargo_bin("angel").expect("angel binary");
+pub fn lctl() -> Command {
+    let mut cmd = Command::cargo_bin("lctl").expect("lctl binary");
     cmd.arg("-y");
     cmd
 }
 
-pub fn angel_sudo() -> Command {
-    let bin = assert_cmd::cargo::cargo_bin("angel");
+pub fn lctl_sudo() -> Command {
+    let bin = assert_cmd::cargo::cargo_bin("lctl");
     let mut cmd = Command::new("sudo");
     // -n: non-interactive; warm ticket with `sudo -v` before `cargo e2e-all`.
     cmd.arg("-n").arg(bin).arg("-y");
@@ -50,7 +50,7 @@ pub fn require_root_e2e() {
     );
 }
 
-/// Interactive auto-elevate e2e: needs a controlling TTY so angel's `stdin_is_tty()` is true
+/// Interactive auto-elevate e2e: needs a controlling TTY so lctl's `stdin_is_tty()` is true
 /// and `sudo -v` can prompt on `/dev/tty`.
 pub fn require_interactive_sudo_e2e() {
     require_macos();
@@ -72,11 +72,11 @@ pub fn invalidate_sudo_ticket() {
     assert!(status.success(), "sudo -K failed");
 }
 
-/// Run `angel` as the current user with stdin attached to `/dev/tty` (not under `sudo -n`).
+/// Run `lctl` as the current user with stdin attached to `/dev/tty` (not under `sudo -n`).
 /// stdout/stderr inherit so the sudo password prompt is visible.
-pub fn angel_tty_status(args: &[&str]) -> ExitStatus {
-    let bin = assert_cmd::cargo::cargo_bin("angel");
-    let tty = File::open("/dev/tty").expect("open /dev/tty for interactive angel");
+pub fn lctl_tty_status(args: &[&str]) -> ExitStatus {
+    let bin = assert_cmd::cargo::cargo_bin("lctl");
+    let tty = File::open("/dev/tty").expect("open /dev/tty for interactive lctl");
     StdCommand::new(bin)
         .arg("-y")
         .args(args)
@@ -84,7 +84,7 @@ pub fn angel_tty_status(args: &[&str]) -> ExitStatus {
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())
         .status()
-        .expect("spawn angel with /dev/tty stdin")
+        .expect("spawn lctl with /dev/tty stdin")
 }
 
 pub fn gui_target(label: &str) -> String {
@@ -302,7 +302,7 @@ pub fn assert_not_running_sudo(target: &str) {
     );
 }
 
-/// Test-owned launchd service. Cleanup uses raw launchctl only (never angel).
+/// Test-owned launchd service. Cleanup uses raw launchctl only (never lctl).
 pub struct TempService {
     pub label: String,
     pub target: String,
@@ -406,9 +406,9 @@ impl TempServiceBuilder {
 }
 
 impl TempService {
-    pub fn install_via_angel(&self) {
+    pub fn install_via_lctl(&self) {
         let domain = if self.system { "system" } else { "gui" };
-        let mut cmd = if self.system { angel_sudo() } else { angel() };
+        let mut cmd = if self.system { lctl_sudo() } else { lctl() };
         // Default strategy is symlink (omit --strategy).
         cmd.args(["install", "--domain", domain, self.fixture_plist.to_str().unwrap()])
             .assert()
@@ -466,7 +466,7 @@ impl TempService {
         let _ = launchctl_sudo(&["bootout", &self.target]);
     }
 
-    /// Place plist in LaunchAgents/Daemons and bootstrap with raw launchctl (no angel).
+    /// Place plist in LaunchAgents/Daemons and bootstrap with raw launchctl (no lctl).
     #[allow(dead_code)]
     pub fn install_raw(&self) {
         let dest = &self.installed_plist;

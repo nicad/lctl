@@ -1,11 +1,11 @@
-use crate::angel::Angel;
 use crate::cli::NameArgs;
 use crate::error::Result;
 use crate::launchctl;
+use crate::lctl::Lctl;
 use crate::output::stdout;
 
-pub(crate) fn run(angel: &Angel, args: &NameArgs) -> Result<()> {
-    let daemon = super::resolve_daemon(angel, &args.name, args.exact)?;
+pub(crate) fn run(lctl: &Lctl, args: &NameArgs) -> Result<()> {
+    let daemon = super::resolve_daemon(lctl, &args.name, args.exact)?;
     daemon.require_source_path()?;
 
     let out = launchctl::bootout(daemon)?;

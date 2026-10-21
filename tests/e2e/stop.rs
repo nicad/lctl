@@ -4,10 +4,10 @@ use crate::harness::{self, TempServiceBuilder};
 fn stop_kills_running_service() {
     harness::require_macos();
     let svc = TempServiceBuilder::gui("stop").sleep().run_at_load().build();
-    svc.install_via_angel();
+    svc.install_via_lctl();
     harness::assert_running(&svc.target);
 
-    harness::angel()
+    harness::lctl()
         .args(["stop", "-e", &svc.label])
         .assert()
         .success()
@@ -21,10 +21,10 @@ fn stop_kills_running_service() {
 fn system_stop_kills_running_service() {
     harness::require_root_e2e();
     let svc = TempServiceBuilder::system("stop").sleep().run_at_load().build();
-    svc.install_via_angel();
+    svc.install_via_lctl();
     harness::assert_running_sudo(&svc.target);
 
-    harness::angel_sudo()
+    harness::lctl_sudo()
         .args(["stop", "-e", &svc.label])
         .assert()
         .success()

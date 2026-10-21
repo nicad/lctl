@@ -12,28 +12,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "angel"
-version = "0.1.1"
-dependencies = [
- "assert_cmd",
- "clap",
- "clap_complete",
- "comfy-table",
- "crossterm",
- "dialoguer",
- "dirs",
- "error_set",
- "nix",
- "nom",
- "plist",
- "predicates",
- "rev_lines",
- "serde",
- "serde_yaml",
- "tempfile",
-]
-
-[[package]]
 name = "anstream"
 version = "0.6.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -446,6 +424,28 @@ name = "itoa"
 version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4a5f13b858c8d314ee3e8f639011f7ccefe71f97f96e50151fb991f267928e2c"
+
+[[package]]
+name = "lctl"
+version = "0.1.1"
+dependencies = [
+ "assert_cmd",
+ "clap",
+ "clap_complete",
+ "comfy-table",
+ "crossterm",
+ "dialoguer",
+ "dirs",
+ "error_set",
+ "nix",
+ "nom",
+ "plist",
+ "predicates",
+ "rev_lines",
+ "serde",
+ "serde_yaml",
+ "tempfile",
+]
 
 [[package]]
 name = "libc"

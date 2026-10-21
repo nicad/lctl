@@ -1,7 +1,7 @@
-use crate::angel::Angel;
 use crate::cli::{InstallArgs, InstallDomain, InstallStrategy};
 use crate::error::{Error, Result, err_msg};
 use crate::launchctl;
+use crate::lctl::Lctl;
 use crate::output::{is_verbose, stderr, stdout};
 use crate::styles;
 use crate::sudo;
@@ -12,10 +12,10 @@ use nix::sys::stat::{FchmodatFlags, Mode, fchmodat};
 use nix::unistd::{Gid, Uid, fchownat};
 use std::path::{Path, PathBuf};
 
-pub(crate) fn run(angel: &Angel, args: &InstallArgs) -> Result<()> {
+pub(crate) fn run(lctl: &Lctl, args: &InstallArgs) -> Result<()> {
     let expanded = utils::expand_path(args.path.as_str())?;
     let (source_path, preselected_domain) =
-        resolve_source_path(angel, &expanded, args.path.as_str())?;
+        resolve_source_path(lctl, &expanded, args.path.as_str())?;
     let bytes = std::fs::read(&source_path)?;
 
     let plist_data = plist::from_bytes::<Plist>(&bytes)?;
@@ -30,22 +30,21 @@ pub(crate) fn run(angel: &Angel, args: &InstallArgs) -> Result<()> {
         styles::display_source_path(&source_path, is_verbose())
     ));
 
-    let selected_domain =
-        get_domain_selection(angel, &plist_data, args.domain, preselected_domain)?;
+    let selected_domain = get_domain_selection(lctl, &plist_data, args.domain, preselected_domain)?;
 
     // copy/symlink/move
-    let target_path = make_target_path(angel, &selected_domain, &service_name)?;
+    let target_path = make_target_path(lctl, &selected_domain, &service_name)?;
     install_file(&args.strategy, &source_path, &target_path, &selected_domain)?;
 
     // kill running service if it is running
-    kill_running_service(angel, &service_name)?;
+    kill_running_service(lctl, &service_name)?;
 
     let daemon = Daemon::from_plist(
         plist_data,
         Some(target_path.clone()),
         selected_domain,
         ForWhom::User,
-        angel.uid.as_raw(),
+        lctl.uid.as_raw(),
     );
 
     let result = launchctl::bootstrap(&daemon)?;
@@ -55,10 +54,10 @@ pub(crate) fn run(angel: &Angel, args: &InstallArgs) -> Result<()> {
 }
 
 /// Local plist path: existing file or symlink (including dangling). Otherwise try fuzzy daemon name
-/// match (covers plists already loaded from `~/.config/angel/{user,system,gui}`). Symlinks are
-/// followed; `preselected_domain` skips the domain prompt when path is under those angel dirs.
+/// match (covers plists already loaded from `{lctl_dir}/{user,system,gui}`). Symlinks are
+/// followed; `preselected_domain` skips the domain prompt when path is under those lctl dirs.
 fn resolve_source_path(
-    angel: &Angel,
+    lctl: &Lctl,
     expanded: &Path,
     query: &str,
 ) -> Result<(PathBuf, Option<Domain>)> {
@@ -69,7 +68,7 @@ fn resolve_source_path(
         expanded.to_path_buf()
     } else {
         let query = query.strip_suffix(".plist").unwrap_or(query);
-        let daemon = super::resolve_angel_daemon(angel, query)?;
+        let daemon = super::resolve_lctl_daemon(lctl, query)?;
         daemon.require_source_path()?.to_path_buf()
     };
 
@@ -80,12 +79,12 @@ fn resolve_source_path(
     let resolved = std::fs::canonicalize(&path).map_err(|e| {
         Error::InvalidInput(err_msg!("Could not resolve source path `{}`: {}", path.display(), e))
     })?;
-    let preselected_domain = infer_domain_from_angel_path(angel, &resolved);
+    let preselected_domain = infer_domain_from_lctl_path(lctl, &resolved);
     Ok((resolved, preselected_domain))
 }
 
-fn infer_domain_from_angel_path(angel: &Angel, resolved: &Path) -> Option<Domain> {
-    for (base, domain, _) in crate::angel::angel_domain_dirs(&angel.angel_dir, angel.uid.as_raw()) {
+fn infer_domain_from_lctl_path(lctl: &Lctl, resolved: &Path) -> Option<Domain> {
+    for (base, domain, _) in crate::lctl::lctl_domain_dirs(&lctl.lctl_dir, lctl.uid.as_raw()) {
         if let Ok(base_canon) = std::fs::canonicalize(&base) {
             if resolved.starts_with(&base_canon) {
                 return Some(domain);
@@ -97,8 +96,8 @@ fn infer_domain_from_angel_path(angel: &Angel, resolved: &Path) -> Option<Domain
     None
 }
 
-fn kill_running_service(angel: &Angel, service_name: &str) -> Result<()> {
-    let daemon = match super::resolve_daemon(angel, service_name, true) {
+fn kill_running_service(lctl: &Lctl, service_name: &str) -> Result<()> {
+    let daemon = match super::resolve_daemon(lctl, service_name, true) {
         Ok(daemon) => match daemon.pid {
             Some(_) => daemon,
             None => return Ok(()), // not running. proceed.
@@ -161,10 +160,10 @@ fn place_file(
         let dest = path_str(target_path)?;
         match strategy {
             InstallStrategy::Symlink => {
-                sudo::require_sudo_n(&["ln", "-sf", src, dest], "symlink install")?
+                sudo::require_sudo_n(&["/bin/ln", "-sf", src, dest], "symlink install")?
             }
-            InstallStrategy::Move => sudo::require_sudo_n(&["mv", src, dest], "move install")?,
-            InstallStrategy::Copy => sudo::require_sudo_n(&["cp", src, dest], "copy install")?,
+            InstallStrategy::Move => sudo::require_sudo_n(&["/bin/mv", src, dest], "move install")?,
+            InstallStrategy::Copy => sudo::require_sudo_n(&["/bin/cp", src, dest], "copy install")?,
         }
         return Ok(());
     }
@@ -197,7 +196,7 @@ fn confirm_overwrite(target_path: &Path, system: bool) -> Result<()> {
 
 fn remove_path(path: &Path, system: bool) -> Result<()> {
     if system && !sudo::is_root() {
-        sudo::require_sudo_n(&["rm", "-f", path_str(path)?], "remove existing install")?;
+        sudo::require_sudo_n(&["/bin/rm", "-f", path_str(path)?], "remove existing install")?;
         return Ok(());
     }
     std::fs::remove_file(path)?;
@@ -205,12 +204,12 @@ fn remove_path(path: &Path, system: bool) -> Result<()> {
 }
 
 fn get_domain_selection(
-    angel: &Angel,
+    lctl: &Lctl,
     plist_data: &Plist,
     cli_domain: Option<InstallDomain>,
     preselected: Option<Domain>,
 ) -> Result<Domain> {
-    let uid = angel.uid.as_raw();
+    let uid = lctl.uid.as_raw();
     let domains = [Domain::Gui(uid), Domain::System, Domain::User(uid)];
     let selected_domain = match (cli_domain, preselected) {
         (Some(InstallDomain::Gui), _) => Domain::Gui(uid),
@@ -226,7 +225,7 @@ fn get_domain_selection(
             domains[domain_selection_index]
         }
     };
-    let plist_domain = Domain::from_plist(plist_data, angel.uid.as_raw(), selected_domain);
+    let plist_domain = Domain::from_plist(plist_data, lctl.uid.as_raw(), selected_domain);
     if plist_domain != selected_domain {
         return Err(Error::InvalidInput(err_msg!(
             "The domain written in the plist is `{}` does not match the selected domain `{}`.",
@@ -243,10 +242,10 @@ fn get_domain_selection(
     Ok(selected_domain)
 }
 
-fn make_target_path(angel: &Angel, domain: &Domain, service_name: &str) -> Result<PathBuf> {
+fn make_target_path(lctl: &Lctl, domain: &Domain, service_name: &str) -> Result<PathBuf> {
     let target_dir = match domain {
         Domain::System => PathBuf::from("/Library/LaunchDaemons"),
-        _ => angel.home.join("Library/LaunchAgents"),
+        _ => lctl.home.join("Library/LaunchAgents"),
     };
     let filename = if service_name.ends_with(".plist") {
         service_name.to_string()
@@ -268,8 +267,8 @@ fn set_system_permissions(path: &Path) -> Result<()> {
     }
 
     let path_str = path_str(path)?;
-    sudo::require_sudo_n(&["chown", "-h", "root:wheel", path_str], "chown root:wheel")?;
-    sudo::require_sudo_n(&["chmod", "644", path_str], "chmod 644")?;
+    sudo::require_sudo_n(&["/usr/sbin/chown", "-h", "root:wheel", path_str], "chown root:wheel")?;
+    sudo::require_sudo_n(&["/bin/chmod", "644", path_str], "chmod 644")?;
     Ok(())
 }
 

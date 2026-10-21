@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 
 fn main() {
     let manifest_dir = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").unwrap());
-    let man_src = manifest_dir.join("man/angel.1");
+    let man_src = manifest_dir.join("man/lctl.1");
     println!("cargo:rerun-if-changed={}", man_src.display());
 
     // `cargo install` builds release by default; skip debug/test builds.
@@ -26,7 +26,7 @@ fn main() {
         return;
     }
 
-    let man_dst = man_dir.join("angel.1");
+    let man_dst = man_dir.join("lctl.1");
     if let Err(e) = fs::copy(&man_src, &man_dst) {
         println!("cargo:warning=could not install man page to {}: {e}", man_dst.display());
     }

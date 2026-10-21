@@ -17,7 +17,7 @@ struct PlistDir {
 fn get_plist_dirs(
     config: &Config,
     user_uid: u32,
-    angel_dir: &std::path::Path,
+    lctl_dir: &std::path::Path,
     home: &std::path::Path,
 ) -> Vec<PlistDir> {
     let mut dirs = vec![
@@ -60,7 +60,7 @@ fn get_plist_dirs(
         is_system_monitored: true,
     });
 
-    for (path, domain, for_use_by) in crate::angel::angel_domain_dirs(angel_dir, user_uid) {
+    for (path, domain, for_use_by) in crate::lctl::lctl_domain_dirs(lctl_dir, user_uid) {
         dirs.push(PlistDir { path, domain, for_use_by, is_system_monitored: false });
     }
 
@@ -85,10 +85,10 @@ impl DaemonRegistry {
     pub fn new(
         config: &Config,
         uid: u32,
-        angel_dir: &std::path::Path,
+        lctl_dir: &std::path::Path,
         home: &std::path::Path,
     ) -> Result<Self> {
-        let plist_dirs = get_plist_dirs(config, uid, angel_dir, home);
+        let plist_dirs = get_plist_dirs(config, uid, lctl_dir, home);
         let mut map: HashMap<String, Daemon> = HashMap::new();
 
         // Scan plist directories
@@ -198,11 +198,11 @@ impl DaemonRegistry {
             .collect()
     }
 
-    /// Fuzzy matches restricted to plists loaded from angel-managed dirs.
-    pub fn get_angel_matches(&self, query: &str) -> Vec<&Daemon> {
+    /// Fuzzy matches restricted to plists loaded from lctl-managed dirs.
+    pub fn get_lctl_matches(&self, query: &str) -> Vec<&Daemon> {
         self.get_matches(query, false)
             .into_iter()
-            .filter(|d| d.for_use_by == ForWhom::Angel)
+            .filter(|d| d.for_use_by == ForWhom::Lctl)
             .collect()
     }
 }

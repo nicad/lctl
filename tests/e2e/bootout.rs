@@ -4,10 +4,10 @@ use crate::harness::{self, TempServiceBuilder};
 fn bootout_unloads_service() {
     harness::require_macos();
     let svc = TempServiceBuilder::gui("bootout").build();
-    svc.install_via_angel();
+    svc.install_via_lctl();
     harness::assert_loaded(&svc.target);
 
-    harness::angel()
+    harness::lctl()
         .args(["bootout", "-e", &svc.label])
         .assert()
         .success()
@@ -22,10 +22,10 @@ fn bootout_unloads_service() {
 fn system_bootout_unloads_service() {
     harness::require_root_e2e();
     let svc = TempServiceBuilder::system("bootout").build();
-    svc.install_via_angel();
+    svc.install_via_lctl();
     harness::assert_loaded_sudo(&svc.target);
 
-    harness::angel_sudo()
+    harness::lctl_sudo()
         .args(["bootout", "-e", &svc.label])
         .assert()
         .success()

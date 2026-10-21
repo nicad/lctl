@@ -1,6 +1,6 @@
-use angel::Error;
-use angel::types::{Daemon, Domain, ForWhom};
-use angel::utils::{expand_path, home, pick_daemon};
+use lctl::Error;
+use lctl::types::{Daemon, Domain, ForWhom};
+use lctl::utils::{expand_path, home, pick_daemon};
 use std::path::PathBuf;
 
 #[test]

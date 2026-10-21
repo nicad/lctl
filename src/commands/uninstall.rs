@@ -1,15 +1,15 @@
-use crate::angel::Angel;
 use crate::cli::NameArgs;
 use crate::error::{Error, Result, err_msg};
 use crate::launchctl;
+use crate::lctl::Lctl;
 use crate::output::{is_verbose, stderr, stdout};
 use crate::parser::{self, ServiceItem};
 use crate::types::Daemon;
 use crate::utils;
 use std::path::{Path, PathBuf};
 
-pub(crate) fn run(angel: &Angel, args: &NameArgs) -> Result<()> {
-    let daemon = super::resolve_daemon(angel, &args.name, args.exact)?;
+pub(crate) fn run(lctl: &Lctl, args: &NameArgs) -> Result<()> {
+    let daemon = super::resolve_daemon(lctl, &args.name, args.exact)?;
 
     let source_path = get_source_path(daemon)?;
 

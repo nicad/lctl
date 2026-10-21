@@ -4,9 +4,9 @@ use crate::harness::{self, TempServiceBuilder};
 fn disable_marks_service_disabled_in_domain() {
     harness::require_macos();
     let mut svc = TempServiceBuilder::gui("disable").sleep().build();
-    svc.install_via_angel();
+    svc.install_via_lctl();
 
-    harness::angel()
+    harness::lctl()
         .args(["disable", "-e", &svc.label])
         .assert()
         .success()
@@ -22,9 +22,9 @@ fn disable_marks_service_disabled_in_domain() {
 fn system_disable_marks_service_disabled_in_domain() {
     harness::require_root_e2e();
     let mut svc = TempServiceBuilder::system("disable").sleep().build();
-    svc.install_via_angel();
+    svc.install_via_lctl();
 
-    harness::angel_sudo()
+    harness::lctl_sudo()
         .args(["disable", "-e", &svc.label])
         .assert()
         .success()

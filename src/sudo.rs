@@ -6,6 +6,8 @@ use nix::unistd;
 use std::io::IsTerminal;
 use std::process::{Command, Output, Stdio};
 
+const SUDO: &str = "/usr/bin/sudo";
+
 /// Whether stdin is an interactive terminal (safe to prompt for a password).
 pub fn stdin_is_tty() -> bool {
     std::io::stdin().is_terminal()
@@ -30,7 +32,7 @@ pub fn ensure_elevated() -> Result<()> {
         output::stdout::writelogln(styles::prefix(Color::Blue, "CMD"), styles::command("sudo -v"));
     }
 
-    let status = Command::new("sudo")
+    let status = Command::new(SUDO)
         .arg("-v")
         .stdin(Stdio::inherit())
         .stdout(Stdio::inherit())
@@ -42,8 +44,9 @@ pub fn ensure_elevated() -> Result<()> {
 }
 
 /// `sudo -n <program> …` for non-interactive use after [`ensure_elevated`].
-pub fn sudo_n(program: &str) -> Command {
-    let mut cmd = Command::new("sudo");
+fn sudo_n(program: &str) -> Command {
+    debug_assert!(program.starts_with('/'), "sudo program must be an absolute path: {program}");
+    let mut cmd = Command::new(SUDO);
     cmd.arg("-n").arg(program);
     cmd
 }

@@ -1,4 +1,4 @@
-use crate::error::{Error as AngelError, Result};
+use crate::error::{Error as LctlError, Result};
 use nom::{
     IResult, Parser,
     branch::alt,
@@ -25,12 +25,12 @@ pub type ParsedService<'a> = HashMap<&'a str, ServiceItem<&'a str>>;
 /// Parses launchctl output
 /// Takes the validated output string (after LaunchctlOutput::require_print_output)
 pub fn parse_print_service<'a>(output: &'a str) -> Result<ParsedService<'a>> {
-    let (_, lines) = many0(parse_line).parse(output).map_err(|e| AngelError::unexpected(e))?;
+    let (_, lines) = many0(parse_line).parse(output).map_err(|e| LctlError::unexpected(e))?;
     let Some(ServiceItem::KeyValue(_, boxed)) = lines.into_iter().next() else {
-        return Err(AngelError::unexpected("expected root dict"));
+        return Err(LctlError::unexpected("expected root dict"));
     };
     let ServiceItem::Dict(items) = *boxed else {
-        return Err(AngelError::unexpected("expected root dict"));
+        return Err(LctlError::unexpected("expected root dict"));
     };
     let map = items
         .into_iter()

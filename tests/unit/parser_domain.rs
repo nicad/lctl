@@ -1,4 +1,4 @@
-use angel::parser::{DomainService, parse_domain_output};
+use lctl::parser::{DomainService, parse_domain_output};
 
 #[test]
 fn parses_services_block() {

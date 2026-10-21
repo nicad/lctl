@@ -1,14 +1,14 @@
-use crate::angel::Angel;
 use crate::cli::{ListArgs, SortBy};
 use crate::error::Result;
+use crate::lctl::Lctl;
 use crate::output;
 use crate::output::stdout;
 use crate::styles;
 use crate::types::ForWhom;
 
-pub(crate) fn run(angel: &Angel, args: &ListArgs) -> Result<()> {
+pub(crate) fn run(lctl: &Lctl, args: &ListArgs) -> Result<()> {
     let query = args.pattern.as_deref().unwrap_or("");
-    let mut matching_daemons = angel.daemons.get_matches(query, args.exact);
+    let mut matching_daemons = lctl.daemons.get_matches(query, args.exact);
     sort_daemons(args.sort_by, &mut matching_daemons);
 
     let mut table = styles::create_table();

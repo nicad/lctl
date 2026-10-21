@@ -5,11 +5,11 @@ use predicates::prelude::*;
 fn status_shows_running_state() {
     harness::require_macos();
     let svc = TempServiceBuilder::gui("status").sleep().run_at_load().build();
-    svc.install_via_angel();
+    svc.install_via_lctl();
     harness::assert_running(&svc.target);
 
     // Match table "State … running" (not "not running"). Dot line has ANSI between ● and text.
-    harness::angel()
+    harness::lctl()
         .args(["status", "-e", &svc.label])
         .assert()
         .success()
@@ -23,10 +23,10 @@ fn status_shows_running_state() {
 fn system_status_shows_running_state() {
     harness::require_root_e2e();
     let svc = TempServiceBuilder::system("status").sleep().run_at_load().build();
-    svc.install_via_angel();
+    svc.install_via_lctl();
     harness::assert_running_sudo(&svc.target);
 
-    harness::angel_sudo()
+    harness::lctl_sudo()
         .args(["status", "-e", &svc.label])
         .assert()
         .success()

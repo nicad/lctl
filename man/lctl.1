@@ -1,10 +1,10 @@
 .\" Copyright (c) 2026 angel contributors
 .Dd August 9, 2026
-.Dt ANGEL 1
+.Dt LCTL 1
 .Os
 .Sh NAME
-.Nm angel
-.Nd the launchctl macOS should've implemented
+.Nm lctl
+.Nd a simpler CLI on top of launchctl
 .Sh SYNOPSIS
 .Nm
 .Op Fl v | Fl \-verbose
@@ -14,7 +14,9 @@
 .Op Ar args
 .Sh DESCRIPTION
 .Nm
-is the launchctl macOS should've implemented.
+is a simpler CLI on top of
+.Xr launchctl 1 ,
+forked from angel.
 A friendlier CLI with lots of helpful features: services can live
 wherever you want, more meaningful errors, and a status command.
 It wraps common
@@ -277,11 +279,11 @@ technote
 optionally reads YAML config from the first existing path among:
 .Bl -bullet -compact
 .It
-.Pa ~/.angelrc
+.Pa ~/.lctlrc
 .It
-.Pa $XDG_CONFIG_HOME/angel/.angelrc
+.Pa ~/Library/Application Support/lctl/.lctlrc
 .It
-.Pa ~/.config/angel/.angelrc
+.Pa ~/.config/lctl/.lctlrc
 .El
 .Pp
 Config may define extra plist directories and their launchd domain:
@@ -303,36 +305,48 @@ Paths may use
 .Ql ~ .
 Config is skipped when running as root
 .Pq home is Pa /var/root .
+.Pp
+Plists in
+.Pa ~/Library/Application Support/lctl/{gui,user,system}
+.Po or
+.Ev LCTL_CONFIG_DIR Ns Pa /{gui,user,system}
+.Pc
+are also scanned, with the domain taken from the subdirectory name.
+.Cm install
+accepts the name of one of these plists instead of a path.
 .Sh EXIT STATUS
 .Ex -std
 .Sh EXAMPLES
 List user-visible services:
 .Bd -literal -offset indent
-angel list
+lctl list
 .Ed
 .Pp
 Install a plist into the GUI domain via symlink:
 .Bd -literal -offset indent
-angel install ./com.example.my.plist --domain gui
+lctl install ./com.example.my.plist --domain gui
 .Ed
 .Pp
 Start, inspect, and stop a service:
 .Bd -literal -offset indent
-angel start my.service
-angel status my.service
-angel logs my.service -t 1h
-angel stop my.service
+lctl start my.service
+lctl status my.service
+lctl logs my.service -t 1h
+lctl stop my.service
 .Ed
 .Pp
 Reload a service after editing a symlinked plist:
 .Bd -literal -offset indent
-angel reboot my.service
+lctl reboot my.service
 .Ed
 .Sh SEE ALSO
 .Xr launchctl 1 ,
 .Xr launchd 8
 .Sh AUTHORS
-.An Olivia Bahr
+.An -nosplit
+.An nicad ,
+based on angel by
+.An Olivia Bahr .
 .Sh BUGS
 Report issues at
-.Lk https://github.com/oliviaBahr/angel .
+.Lk https://github.com/nicad/lctl .

@@ -1,15 +1,15 @@
-use crate::angel::Angel;
 use crate::cli::StatusArgs;
 use crate::error::Result;
 use crate::launchctl;
+use crate::lctl::Lctl;
 use crate::output::stdout;
 use crate::parser::{self, ServiceItem};
 use crate::styles;
 use comfy_table::Table;
 use crossterm::style::Color;
 
-pub(crate) fn run(angel: &Angel, args: &StatusArgs) -> Result<()> {
-    let daemon = super::resolve_daemon(angel, &args.target.name, args.target.exact)?;
+pub(crate) fn run(lctl: &Lctl, args: &StatusArgs) -> Result<()> {
+    let daemon = super::resolve_daemon(lctl, &args.target.name, args.target.exact)?;
 
     // Get launchctl result once (reuse for debug and parsing)
     let result = launchctl::print(&daemon.service_target())?;
