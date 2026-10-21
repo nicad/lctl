@@ -53,6 +53,53 @@ impl LaunchctlOutput {
     fn looks_like_needs_root(&self) -> bool {
         sudo::looks_like_needs_root(&self.stdout, &self.stderr)
     }
+
+    /// What to do about this failed call on `daemon`, from launchd's error message.
+    pub fn failure_hint(&self, daemon: &Daemon) -> Option<String> {
+        let name = &daemon.name;
+        let has = |message: &str| self.stdout.contains(message) || self.stderr.contains(message);
+
+        if has("System Integrity Protection") {
+            return Some(
+                "protected by System Integrity Protection; it can't be changed".to_string(),
+            );
+        }
+        if has("Service is disabled") {
+            return Some(format!("run `lctl enable {name}`"));
+        }
+        if has("bad ownership/permissions") {
+            return Some(format!("`lctl doctor {name}` shows what to fix"));
+        }
+        if has("Could not find service") || has("Could not find specified service") {
+            return Some(format!(
+                "not loaded in {}; `lctl start {name}` loads and starts it",
+                daemon.domain
+            ));
+        }
+        if has("No such process") {
+            return Some(format!("not loaded in {}", daemon.domain));
+        }
+        if has("Operation already in progress") {
+            return Some(format!("already loaded; `lctl reload {name}` reloads it"));
+        }
+        // launchd's catch-all for a refused load; lctl checks disabled before loading
+        if has("Input/output error") {
+            return Some(match daemon.domain {
+                _ if daemon.loaded => format!("already loaded; `lctl reload {name}` reloads it"),
+                Domain::User(_) => format!(
+                    "launchd refused the plist: `lctl doctor {name}` checks it. The user domain is \
+                     for background sessions; agents for your login session belong in gui"
+                ),
+                _ => format!("launchd refused the plist: `lctl doctor {name}` checks it"),
+            });
+        }
+        if self.looks_like_needs_root() {
+            return Some(
+                "needs root: run it from a terminal (lctl asks for sudo) or with sudo".to_string(),
+            );
+        }
+        None
+    }
 }
 
 pub fn bootstrap(daemon: &Daemon) -> Result<LaunchctlOutput> {
@@ -61,17 +108,7 @@ pub fn bootstrap(daemon: &Daemon) -> Result<LaunchctlOutput> {
         .to_str()
         .ok_or_else(|| Error::InvalidInput(err_msg!("Invalid source path encoding")))?;
     let domain = daemon.domain.to_string();
-    let res = launchctl_exec(&["bootstrap", &domain, path]);
-    if res.as_ref().is_ok_and(|result| {
-        result.stdout.contains("Input/output error") || result.stderr.contains("Input/output error")
-    }) {
-        if matches!(daemon.domain, Domain::User(_)) {
-            output::stdout::hint(
-                "The user domain is for background sessions. If this isn't a background session, use the GUI domain.",
-            );
-        }
-    }
-    res
+    launchctl_exec(&["bootstrap", &domain, path])
 }
 
 pub fn bootout(daemon: &Daemon) -> Result<LaunchctlOutput> {

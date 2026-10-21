@@ -4,6 +4,7 @@ mod fixtures;
 mod harness;
 
 mod disable;
+mod doctor;
 mod enable;
 mod install;
 mod list;

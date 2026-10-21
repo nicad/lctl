@@ -83,21 +83,13 @@ fn read_log_file_tail(path: &str, n: usize) -> Result<String> {
 }
 
 fn extract_process_name(daemon: &crate::types::Daemon) -> String {
-    if let Some(plist) = &daemon.plist {
-        if let Some(ref program) = plist.program {
-            if let Some(name) = Path::new(program).file_name().and_then(|n| n.to_str()) {
-                return name.to_string();
-            }
-        }
-        if let Some(ref args) = plist.program_arguments {
-            if let Some(first_arg) = args.first() {
-                if let Some(name) = Path::new(first_arg).file_name().and_then(|n| n.to_str()) {
-                    return name.to_string();
-                }
-            }
-        }
-    }
-    daemon.name.clone()
+    daemon
+        .plist
+        .as_ref()
+        .and_then(|plist| plist.executable())
+        .and_then(|program| Path::new(program).file_name())
+        .and_then(|name| name.to_str())
+        .map_or_else(|| daemon.name.clone(), str::to_string)
 }
 
 fn get_unified_logs(process_name: &str, time_frame: &str) -> Result<String> {

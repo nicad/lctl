@@ -4,10 +4,13 @@ A simpler CLI on top of macOS `launchctl`.
 
 Fork of [angel](https://github.com/oliviaBahr/angel) by Olivia Bahr (MIT), renamed and maintained separately.
 
-- Fuzzy (substring) service name matching, with a picker when several services match
+- `lctl` on its own lists your services with their state (running, idle, failed, not loaded, disabled) and when they run
+- `lctl status <name>`: state, command, schedule, logs and plist on one screen, with problems and the next commands to run
+- `lctl doctor` checks plists for problems launchd won't tell you about (missing program, unwritable log directory, wrong owner, edits not reloaded…)
 - Commands named after what you want (`start`, `stop`, `enable`, `disable`, `reload`) that run the needed launchctl steps
+- launchctl errors come with a hint naming the lctl command that fixes them
+- Fuzzy (substring) service name matching, with a picker when several services match
 - `install` / `uninstall` that place the plist and load it in one step
-- A `status` command that renders `launchctl print` as a table
 - `logs` that combines the plist's stdout/stderr files with the unified log
 - Auto-retry with `sudo` when launchctl needs root
 - Shell completion and a man page
@@ -33,7 +36,10 @@ lctl completion fish > ~/.config/fish/completions/lctl.fish
 ## Usage
 
 ```bash
-lctl list
+lctl                        # your services: state, schedule, plist
+lctl status my.service      # one service: what it runs, when, logs, problems, next steps
+lctl doctor                 # check all your services for problems
+
 lctl install ./my.service.plist
 lctl start my.service
 lctl status my.service
@@ -56,7 +62,10 @@ Common flags:
 - `install --domain gui|user|system` — skip interactive domain selection
 - `install -s symlink|copy|move` — how to place the plist (default: symlink)
 - `logs -t 5m` — log time frame (e.g. `1h`, `24h`)
-- `list -a` / `-d` / `-i` — also show Apple services / services without a plist on disk / services that are not running
+- `list --running` / `--idle` / `--failed` / `--not-loaded` / `--disabled` — only services in those states (combinable)
+- `list -a` / `-d` — also show Apple services / services without a plist on disk
+- `list -1` — labels only, one per line (for scripts)
+- `status -d` — also show every launchd field and the raw `launchctl print` output
 
 Run `lctl --help` or `lctl <command> --help` for options. See `man lctl` for the full manual.
 
@@ -84,14 +93,17 @@ Steps run in order. lctl stops at the first step that fails and prints launchctl
 
 | lctl | Executes, in order | Notes |
 |---|---|---|
-| `start <name>` | 1. if not loaded: `launchctl bootstrap <domain> <plist>`<br>2. `launchctl kickstart <target>` | `kickstart` runs the process now, whatever the plist's launch conditions. An already running process is left alone. A disabled service can't be loaded: run `enable` first. |
+| `start <name>` | 1. if not loaded: `launchctl bootstrap <domain> <plist>`<br>2. `launchctl kickstart <target>` | `kickstart` runs the process now, whatever the plist's launch conditions. An already running process is left alone. A disabled service can't be loaded: if it is disabled and not loaded, lctl stops before calling launchctl and says to run `lctl enable`. |
 | `stop <name>` | if loaded: `launchctl bootout <target>` | If it isn't loaded, nothing runs. Because the service is unloaded, `KeepAlive` can't restart it. It comes back at the next login/boot if the plist is in a standard Launch* directory; `disable` prevents that. |
-| `restart <name>` | if loaded: `launchctl kickstart -k <target>`<br>if not loaded: 1. `launchctl bootstrap <domain> <plist>` 2. `launchctl kickstart <target>` | `-k` kills the running process first, if there is one. When not loaded it behaves like `start`. |
-| `reload <name>` | 1. if loaded: `launchctl bootout <target>`<br>2. `launchctl bootstrap <domain> <plist>` | Picks up plist edits and symlink target changes. Fails before unloading if the service has no plist on disk. |
+| `restart <name>` | if loaded: `launchctl kickstart -k <target>`<br>if not loaded: 1. `launchctl bootstrap <domain> <plist>` 2. `launchctl kickstart <target>` | `-k` kills the running process first, if there is one. When not loaded it behaves like `start`, including the disabled check. |
+| `reload <name>` | 1. if loaded: `launchctl bootout <target>`<br>2. `launchctl bootstrap <domain> <plist>` | Picks up plist edits and symlink target changes. Fails before unloading if the service has no plist on disk or is disabled. |
 | `enable <name>` | 1. `launchctl enable <target>`<br>2. if not loaded: `launchctl bootstrap <domain> <plist>` | The flag change persists across reboots. Loading runs the process only if the plist asks for it; `start` runs it now. |
 | `disable <name>` | 1. `launchctl disable <target>`<br>2. if loaded: `launchctl bootout <target>` | Persists across reboots until `enable`. Disabling before the bootout keeps `KeepAlive` from restarting it. The plist stays on disk. |
-| `status <name>` | if loaded: `launchctl print <target>` | Parsed into a table. If not loaded, shows "not loaded" and the plist path. `-d` also prints the raw `launchctl print` output and the parsed data. |
-| `list [pattern]` | nothing beyond discovery | Columns: last exit code, PID, domain, label, plist path. By default only services that are running, have a plist on disk and are not Apple's; `-i`, `-d`, `-a` lift each filter. "Apple" means a plist under `/System/Library`, or, for a service without a plist, a label containing `com.apple`. |
+| `status <name>` | if loaded: `launchctl print <target>` | Shows the state, domain, enabled/disabled, PID, the command (from the plist, or from launchd when there is no plist), "runs when", log files, plist path, problems from the [doctor checks](#doctor-checks) and the next commands to run. "Next" lists the fixes for any problems; without problems, the usual commands for its state (running: `logs`, `restart`, `stop`; idle: `start`). `-d` adds every launchd field and the raw `launchctl print` output. |
+| `status` | nothing beyond discovery | Same as `list`. |
+| `lctl` (no command) | nothing beyond discovery | Same as `list`. |
+| `list [pattern]` | nothing beyond discovery | Columns: state, PID, domain, label, "runs when" (from the plist's `RunAtLoad`, `KeepAlive`, `StartInterval`, `StartCalendarInterval`, `WatchPaths`, `QueueDirectories`, `StartOnMount`, `Sockets`/`MachServices`; "manual only" when none), plist path, then a count per state. Shows services that have a plist on disk and aren't Apple's, in any state. `--running`, `--idle`, `--failed`, `--not-loaded`, `--disabled` keep only those states (combinable); `-a` adds Apple's, `-d` adds services without a plist; `-1` prints labels only. "Apple" means a plist under `/System/Library`, or, for a service without a plist, a label containing `com.apple`. |
+| `doctor [name]` | for each loaded service: `launchctl print <target>` | Runs the [doctor checks](#doctor-checks). Without a name it checks all the services `list` shows by default and prints only those with problems (`-v`: all, including passing checks). Exits with an error if any check fails. |
 | `logs <name>` | 1. print the last 50 lines of the plist's `StandardOutPath` and `StandardErrorPath` (those that exist)<br>2. `/usr/bin/log show --predicate 'process == "<program>"' --last <time> --style compact`, last 50 lines | `<program>` is the file name of `Program`, else of `ProgramArguments[0]`, else the label. `<time>` comes from `-t` (default `5m`). No launchctl call. |
 | `plist <name>` | read `<plist>` and print it | Text (XML) plists only; a binary plist fails (use `plutil -p`). |
 | `install <file>` | see [install](#install-1) | |
@@ -107,8 +119,9 @@ Steps run in order. lctl stops at the first step that fails and prints launchctl
 3. **Destination.** `~/Library/LaunchAgents/<label>.plist` for `gui`/`user`, `/Library/LaunchDaemons/<label>.plist` for `system`. If something is already there, lctl asks (default yes) and removes it.
 4. **Place.** `-s symlink` (default) creates a symlink to the source; `-s copy` copies it; `-s move` moves it.
 5. **Ownership (`system` only).** launchd only loads root-owned daemon plists. lctl runs `chown -h root:wheel` and `chmod 644` on the source file (symlink, move) and on the placed file (symlink, copy). With the default symlink, your source file becomes `root:wheel 644`.
-6. **Existing service.** If a service with that label is loaded, lctl asks (default no), then runs `launchctl disable <target>`, `launchctl bootout <target>`, `launchctl enable <target>`.
+6. **Existing service.** If a service with that label is loaded, lctl asks (default no), then runs `launchctl disable <target>`, `launchctl bootout <target>`, `launchctl enable <target>`. If it isn't loaded but is disabled, lctl runs `launchctl enable <target>`.
 7. `launchctl bootstrap <domain> <plist>`
+8. Prints any problems the [doctor checks](#doctor-checks) find in the installed service.
 
 For `system` when lctl isn't running as root, steps 3–5 run through `sudo -n`: `/bin/rm -f`, `/bin/ln -sf`, `/bin/cp`, `/bin/mv`, `/usr/sbin/chown -h root:wheel`, `/bin/chmod 644`. As root, lctl makes the same changes directly.
 
@@ -121,6 +134,22 @@ For `system` when lctl isn't running as root, steps 3–5 run through `sudo -n`:
 3. Deletes `<plist>`: the plist found during discovery or, for a service without one, the `path` reported by `launchctl print <target>`. If it is a symlink, only the link is deleted, not the file it points to. This step does not use sudo, so for a plist in `/Library/LaunchDaemons` run `sudo lctl uninstall <name>`.
 4. `launchctl enable <target>`. Best-effort: clears a disabled flag so a later install of the same label can load. A failure prints a warning.
 
+#### doctor checks
+
+Used by `lctl doctor`, `lctl status` and after `lctl install`. ✗ is a failure (launchd won't load or run it as intended), ! a warning; most come with the command that fixes them.
+
+| Check | Result |
+|---|---|
+| State | ! failed (last exit code non-zero) → `lctl logs`; ! disabled → `lctl enable`; ! not loaded while the plist is in a Launch* directory → `lctl start`; ! not installed (plist outside the Launch* directories) → `lctl install` |
+| `Label` | ✗ missing (e.g. an emptied stub plist): launchd ignores the file and nothing else is checked; ! file name isn't `<Label>.plist` |
+| Plist owner and mode | ✗ if a daemon's plist, or any plist under `/Library`, isn't owned by root, or another agent plist isn't owned by you (or root), or the file is writable by group/others (checked on the symlink target for symlinks) → the `chown`/`chmod` to run |
+| `LimitLoadToSessionType` | ! a value other than `System` in a LaunchDaemons directory, or `System` in a LaunchAgents directory |
+| Program | ✗ no `Program`/`ProgramArguments`; ✗ an absolute path that doesn't exist or isn't executable; ✗ a bare name not found in the plist's `PATH` or launchd's default `/usr/bin:/bin:/usr/sbin:/sbin` |
+| `WorkingDirectory` | ✗ doesn't exist |
+| Log files | ! the directory of `StandardOutPath`/`StandardErrorPath` doesn't exist, so output is lost → `mkdir -p`, with `sudo` (and a `chown` to you for agents) when you can't write the parent; ! for agents, the log file or directory isn't writable by you |
+| Launch triggers | ! none (only runs when started) → `lctl start`; ! `StartInterval` under 10 s |
+| Loaded vs disk (loaded services) | ! program or arguments that launchd loaded differ from the plist on disk → `lctl reload`; ✗ loaded from a plist file that no longer exists → `lctl stop` |
+
 ### launchctl → lctl
 
 | launchctl | Closest modern equivalent | lctl |
@@ -132,7 +161,7 @@ For `system` when lctl isn't running as root, steps 3–5 run through `sudo -n`:
 | `launchctl remove <label>` | `launchctl bootout <target>` | `lctl stop <name>` |
 | `launchctl start <label>` | `launchctl kickstart <target>` | `lctl start <name>` |
 | `launchctl stop <label>` | `launchctl kill SIGTERM <target>` | `lctl stop <name>` (unloads instead, so `KeepAlive` can't restart it) |
-| `launchctl list` | `launchctl print <domain>` | `lctl list` |
+| `launchctl list` | `launchctl print <domain>` | `lctl` or `lctl list` |
 | `launchctl list <label>` | `launchctl print <target>` | `lctl status <name>` |
 | `launchctl bootstrap <domain> <plist>` | — | `lctl enable <name>`, or `lctl start <name>` to also run it |
 | `launchctl bootout <target>` | — | `lctl stop <name>` |
@@ -142,7 +171,7 @@ For `system` when lctl isn't running as root, steps 3–5 run through `sudo -n`:
 | `launchctl disable <target>` | — | `lctl disable <name>` (also unloads) |
 | `launchctl print <target>` | — | `lctl status -d <name>` |
 | `launchctl kill <sig> <target>` | — | not wrapped; use launchctl |
-| `launchctl print-disabled <domain>` | — | not wrapped; use launchctl |
+| `launchctl print-disabled <domain>` | — | `lctl list --disabled` (`-a -d` to include Apple's and services without a plist; launchctl also lists flags left for labels that no longer exist) |
 | `launchctl blame <target>` | — | not wrapped; use launchctl |
 | `launchctl submit`, `setenv`, `getenv`, `asuser`, `bsexec`, `limit`, `config`, `attach`, `debug`, `procinfo`, `dumpstate`, … | — | not wrapped; use launchctl |
 
@@ -150,7 +179,8 @@ The legacy subcommands (`load`, `unload`, `start`, `stop`, `list`, `remove`) inf
 
 ### What lctl does around those commands
 
-- **Discovery.** Every command except `completion` first runs `launchctl print system`, `launchctl print user/<uid>` and `launchctl print gui/<uid>`, and reads the plist directories listed under [Configuration](#configuration). A service listed by one of those `print` calls is loaded; one with PID `-` or `0` is not running.
+- **Discovery.** Every command except `completion` first runs `launchctl print system`, `launchctl print user/<uid>` and `launchctl print gui/<uid>`, and reads the plist directories listed under [Configuration](#configuration). A service listed by one of those `print` calls is loaded; one with PID `-` or `0` is not running. The same output's `disabled services` block gives each label's disabled flag. The state shown everywhere is: running (has a PID), failed (loaded, last exit code non-zero), idle (loaded otherwise), disabled (not loaded, flag set), not loaded.
+- **Error hints.** When a launchctl call fails, lctl adds a `hint:` line based on launchd's message: `Could not find service` (113) → `lctl start`; `Input/output error` (5, launchd's catch-all for a refused load) → `lctl reload` if it is already loaded, otherwise `lctl doctor` (for the `user` domain, also a note that agents for your login session belong in `gui`; a disabled service is caught before launchctl runs); `Operation already in progress` (37) → `lctl reload`; `Service is disabled` (119) → `lctl enable`; `Path had bad ownership/permissions` (122) → `lctl doctor`; SIP (150) → can't be changed; `Operation not permitted` (1) or the "re-run as root" message with no more specific error → needs root.
 - **Name resolution.** `<name>` is a case-insensitive substring of the label (`-e` for an exact match). If several services match, lctl shows a picker (`-y` picks the first alphabetically).
 - **Domain resolution.** A service's domain is, in order of precedence: the domain where launchd currently has it loaded; the plist's `LimitLoadToSessionType` (`Aqua` → `gui`, `Background`/`LoginWindow` → `user`, `System` → `system`); the domain of the directory the plist was found in.
 - **sudo.** lctl runs launchctl as you first. It retries as root only if launchctl's output contains `Try re-running the command as root`, or `Operation not permitted` without `System Integrity Protection` (sudo can't override SIP). With stdin on a terminal, lctl runs `/usr/bin/sudo -v`, which prompts the way sudo is configured (password, or Touch ID via `pam_tid`). It then reruns the command as `/usr/bin/sudo -n /bin/launchctl …`. Without a terminal there is no prompt and launchctl's error is reported as is. `install --domain system` and a cancelled prompt fail with "Sudo is required". lctl never reads or stores your password. launchctl prints the "re-running as root" hint on many failed `bootstrap` calls (for example, a disabled service), so such a failure can bring up a sudo prompt and then fail again with a more detailed error.

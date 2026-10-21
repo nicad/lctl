@@ -12,7 +12,7 @@ pub(crate) fn run(lctl: &Lctl, args: &NameArgs) -> Result<()> {
                 return super::step(daemon, launchctl::kickstart_kill, "restart");
             }
             // -k right after bootstrap would kill a process RunAtLoad just started
-            super::step(daemon, launchctl::bootstrap, "bootstrap")?;
+            super::ensure_loaded(daemon)?;
             super::step(daemon, launchctl::kickstart, "restart")
         },
         "restarted",

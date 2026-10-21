@@ -19,6 +19,14 @@ impl Domain {
             _ => default,
         }
     }
+
+    /// The user a `gui`/`user` domain belongs to; services there run as that user.
+    pub fn user_uid(&self) -> Option<u32> {
+        match self {
+            Domain::Gui(uid) | Domain::User(uid) => Some(*uid),
+            Domain::System | Domain::Unknown => None,
+        }
+    }
 }
 
 impl fmt::Display for Domain {
@@ -97,6 +105,32 @@ pub struct Plist {
 
     #[serde(rename = "LimitLoadToSessionType", skip_serializing_if = "Option::is_none")]
     pub limit_load_to_session_type: Option<String>,
+
+    // Launch triggers kept as raw values: only their presence (and the calendar fields) matter,
+    // and a typed shape would make an unusual but valid plist fail to parse.
+    #[serde(rename = "StartCalendarInterval", skip_serializing_if = "Option::is_none")]
+    pub start_calendar_interval: Option<plist::Value>,
+
+    #[serde(rename = "WatchPaths", skip_serializing_if = "Option::is_none")]
+    pub watch_paths: Option<plist::Value>,
+
+    #[serde(rename = "QueueDirectories", skip_serializing_if = "Option::is_none")]
+    pub queue_directories: Option<plist::Value>,
+
+    #[serde(rename = "Sockets", skip_serializing_if = "Option::is_none")]
+    pub sockets: Option<plist::Value>,
+
+    #[serde(rename = "MachServices", skip_serializing_if = "Option::is_none")]
+    pub mach_services: Option<plist::Value>,
+}
+
+impl Plist {
+    /// The executable launchd runs: `Program`, else `ProgramArguments[0]`.
+    pub fn executable(&self) -> Option<&str> {
+        self.program
+            .as_deref()
+            .or_else(|| self.program_arguments.as_ref()?.first().map(String::as_str))
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -110,6 +144,44 @@ pub struct Daemon {
     pub last_exit_code: Option<String>,
     /// Bootstrapped in launchd (listed by `launchctl print <domain>`).
     pub loaded: bool,
+    /// launchd's persistent disabled flag is set for this label in `domain`.
+    pub disabled: bool,
+}
+
+/// Service state as shown by `list` and `status`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ServiceState {
+    Running,
+    Idle,
+    /// Loaded, not running, and the last exit code was non-zero.
+    Failed(i32),
+    NotLoaded,
+    Disabled,
+}
+
+impl ServiceState {
+    /// Display order for summaries.
+    pub const NAMES: [&'static str; 5] = ["running", "idle", "failed", "not loaded", "disabled"];
+
+    /// The state without details (the exit code of `Failed`).
+    pub fn name(&self) -> &'static str {
+        match self {
+            ServiceState::Running => "running",
+            ServiceState::Idle => "idle",
+            ServiceState::Failed(_) => "failed",
+            ServiceState::NotLoaded => "not loaded",
+            ServiceState::Disabled => "disabled",
+        }
+    }
+}
+
+impl fmt::Display for ServiceState {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ServiceState::Failed(code) => write!(f, "failed (exit {code})"),
+            state => f.write_str(state.name()),
+        }
+    }
 }
 
 impl Daemon {
@@ -137,7 +209,22 @@ impl Daemon {
             pid: None,
             last_exit_code: None,
             loaded: false,
+            disabled: false,
         }
+    }
+
+    pub fn state(&self) -> ServiceState {
+        if self.pid.is_some() {
+            return ServiceState::Running;
+        }
+        if self.loaded {
+            // exit code is `-` (never exited), a number, or a marker like `(jt)`
+            return match self.last_exit_code.as_deref().and_then(|code| code.parse().ok()) {
+                Some(code) if code != 0 => ServiceState::Failed(code),
+                _ => ServiceState::Idle,
+            };
+        }
+        if self.disabled { ServiceState::Disabled } else { ServiceState::NotLoaded }
     }
 
     pub fn service_target(&self) -> String {

@@ -39,6 +39,7 @@ fn pick_daemon_single_match() {
         pid: None,
         last_exit_code: None,
         loaded: false,
+        disabled: false,
     };
     let picked = pick_daemon(vec![&daemon], "one").unwrap();
     assert_eq!(picked.name, "com.example.one");

@@ -8,8 +8,9 @@ pub(crate) fn run(lctl: &Lctl, args: &NameArgs) -> Result<()> {
         lctl,
         args,
         |daemon| {
-            // fail before unloading if there is no plist to load again
+            // fail before unloading if it can't be loaded again
             daemon.require_source_path()?;
+            super::require_enabled(daemon)?;
             super::ensure_unloaded(daemon)?;
             super::step(daemon, launchctl::bootstrap, "bootstrap")
         },

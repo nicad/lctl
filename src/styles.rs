@@ -1,5 +1,6 @@
-use crate::types::{Daemon, Domain};
-use comfy_table::{ContentArrangement, Table};
+use crate::doctor::{Check, Severity};
+use crate::types::{Daemon, Domain, ServiceState};
+use comfy_table::{Cell, ContentArrangement, Table};
 use crossterm::style::{Color, Stylize};
 use std::path::{Path, PathBuf};
 
@@ -11,16 +12,39 @@ pub fn command(text: &str) -> String {
     text.italic().dim().to_string()
 }
 
-pub fn format_status_dot(status: &str, color: Option<Color>) -> String {
-    let (color, dot) = match status {
-        "running" => (Color::Green, "●"),
-        "not running" => (Color::White, "●"),
-        "stopped" => (Color::Red, "●"),
-        "launched" => (Color::Yellow, "●"),
-        "exited" => (Color::Blue, "●"),
-        _ => (color.unwrap_or(Color::Magenta), "●"),
+fn state_style(state: &ServiceState) -> (&'static str, Color) {
+    match state {
+        ServiceState::Running => ("●", Color::Green),
+        ServiceState::Idle => ("○", Color::Blue),
+        ServiceState::Failed(_) => ("✗", Color::Red),
+        ServiceState::NotLoaded => ("–", Color::Yellow),
+        ServiceState::Disabled => ("⊘", Color::Magenta),
+    }
+}
+
+/// Colored symbol + state, for plain output lines.
+pub fn state(state: &ServiceState) -> String {
+    let (symbol, color) = state_style(state);
+    format!("{} {state}", symbol.with(color))
+}
+
+/// Same as [`state`] for a table cell (comfy-table measures width without ANSI codes).
+pub fn state_cell(state: &ServiceState) -> Cell {
+    let (symbol, color) = state_style(state);
+    Cell::new(format!("{symbol} {state}")).fg(color)
+}
+
+/// A doctor check as `✗ message  → fix`.
+pub fn check(check: &Check) -> String {
+    let symbol = match check.severity {
+        Severity::Ok => "✔".with(Color::Green),
+        Severity::Warn => "!".with(Color::Yellow),
+        Severity::Fail => "✗".with(Color::Red),
     };
-    format!("{} {}", dot.with(color), status)
+    match &check.fix {
+        Some(fix) => format!("{symbol} {}  {}", check.message, command(&format!("→ {fix}"))),
+        None => format!("{symbol} {}", check.message),
+    }
 }
 
 pub fn color_domain(domain: &Domain) -> String {

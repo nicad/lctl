@@ -1,4 +1,5 @@
 pub(crate) mod disable;
+pub(crate) mod doctor;
 pub(crate) mod enable;
 pub(crate) mod install;
 pub(crate) mod list;
@@ -12,7 +13,7 @@ pub(crate) mod stop;
 pub(crate) mod uninstall;
 
 use crate::cli::NameArgs;
-use crate::error::Result;
+use crate::error::{Error, Result};
 use crate::launchctl::{self, LaunchctlOutput};
 use crate::lctl::Lctl;
 use crate::output::stdout;
@@ -29,6 +30,11 @@ pub(crate) fn resolve_lctl_daemon<'a>(lctl: &'a Lctl, query: &str) -> Result<&'a
     utils::pick_daemon(lctl.daemons.get_lctl_matches(query), query)
 }
 
+/// `launchctl print <target>` when the service is loaded (status and doctor parse it).
+pub(crate) fn print_if_loaded(daemon: &Daemon) -> Result<Option<LaunchctlOutput>> {
+    if daemon.loaded { launchctl::print(&daemon.service_target()).map(Some) } else { Ok(None) }
+}
+
 /// Resolve a named daemon, run `steps` on it, then report `done`.
 pub(crate) fn run_steps(
     lctl: &Lctl,
@@ -42,7 +48,7 @@ pub(crate) fn run_steps(
     Ok(())
 }
 
-/// Run one launchctl op, print its stdout, require success.
+/// Run one launchctl op, print its stdout, require success (with a hint when it fails).
 pub(crate) fn step(
     daemon: &Daemon,
     op: impl FnOnce(&Daemon) -> Result<LaunchctlOutput>,
@@ -50,13 +56,25 @@ pub(crate) fn step(
 ) -> Result<()> {
     let result = op(daemon)?;
     stdout::write(&result.stdout);
-    result.require_ok(&format!("{action} {}", daemon.name))?;
+    result
+        .require_ok(&format!("{action} {}", daemon.name))
+        .map_err(|e| e.with_hint(result.failure_hint(daemon)))?;
     Ok(())
+}
+
+/// A disabled service can't be loaded; say so instead of letting bootstrap fail
+/// (its error also triggers a needless sudo retry).
+pub(crate) fn require_enabled(daemon: &Daemon) -> Result<()> {
+    if daemon.disabled { Err(Error::Disabled { name: daemon.name.clone() }) } else { Ok(()) }
 }
 
 /// Bootstrap unless launchd already has the service loaded.
 pub(crate) fn ensure_loaded(daemon: &Daemon) -> Result<()> {
-    if daemon.loaded { Ok(()) } else { step(daemon, launchctl::bootstrap, "bootstrap") }
+    if daemon.loaded {
+        return Ok(());
+    }
+    require_enabled(daemon)?;
+    step(daemon, launchctl::bootstrap, "bootstrap")
 }
 
 /// Boot out if launchd has the service loaded.

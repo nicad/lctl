@@ -3,7 +3,7 @@ use crate::error::{Error, Result};
 use crate::output::stderr;
 use crate::parser;
 use crate::types::{Daemon, Domain, ForWhom, Plist};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::thread;
 
@@ -102,10 +102,7 @@ impl DaemonRegistry {
                 if path.extension().and_then(|e| e.to_str()) != Some("plist") {
                     continue;
                 }
-                let plist_uid = match plist_dir.domain {
-                    Domain::User(uid) | Domain::Gui(uid) => uid,
-                    _ => 0,
-                };
+                let plist_uid = plist_dir.domain.user_uid().unwrap_or(0);
                 if let Ok(content) = std::fs::read(&path) {
                     if let Ok(plist_data) = plist::from_bytes::<Plist>(&content) {
                         // pick source path for duplicates
@@ -139,7 +136,7 @@ impl DaemonRegistry {
             .into_iter()
             .map(|domain| {
                 thread::spawn(move || match parser::parse_print_domain(&domain) {
-                    Ok(services) => Some((domain, services)),
+                    Ok(listing) => Some((domain, listing)),
                     Err(e) => {
                         stderr::error(&format!("Failed to parse domain {}: {}", domain, e));
                         None
@@ -148,11 +145,13 @@ impl DaemonRegistry {
             })
             .collect();
 
+        let mut disabled_by_domain: HashMap<Domain, HashSet<String>> = HashMap::new();
         for handle in handles {
             let joined =
                 handle.join().map_err(|_| Error::unexpected("domain scan thread panicked"))?;
-            if let Some((domain, services)) = joined {
-                for service in services {
+            if let Some((domain, listing)) = joined {
+                disabled_by_domain.insert(domain, listing.disabled);
+                for service in listing.services {
                     // Update existing daemon or create new one
                     if let Some(daemon) = map.get_mut(&service.name) {
                         daemon.domain = domain;
@@ -175,11 +174,18 @@ impl DaemonRegistry {
                             pid: service.pid,
                             last_exit_code: service.last_exit_code,
                             loaded: true,
+                            disabled: false,
                         };
                         map.insert(name, daemon);
                     }
                 }
             }
+        }
+
+        for daemon in map.values_mut() {
+            daemon.disabled = disabled_by_domain
+                .get(&daemon.domain)
+                .is_some_and(|labels| labels.contains(&daemon.name));
         }
 
         Ok(Self { map })

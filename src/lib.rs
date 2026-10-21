@@ -2,6 +2,8 @@ pub mod cli;
 pub(crate) mod commands;
 pub mod config;
 pub mod daemon;
+pub mod describe;
+pub mod doctor;
 pub mod error;
 pub mod launchctl;
 pub mod lctl;
@@ -13,7 +15,7 @@ pub mod types;
 pub mod utils;
 
 use clap::{CommandFactory, Parser};
-use cli::{Cli, Commands};
+use cli::{Cli, Commands, ListArgs};
 use error::Result;
 use lctl::Lctl;
 
@@ -25,12 +27,13 @@ pub fn run() -> Result<()> {
     output::init(cli.verbose, cli.yes);
 
     match cli.command {
-        Commands::Completion { shell } => {
+        Some(Commands::Completion { shell }) => {
             let mut cmd = Cli::command();
             clap_complete::generate(shell, &mut cmd, "lctl", &mut std::io::stdout());
             Ok(())
         }
-        command => dispatch(&Lctl::load()?, command),
+        Some(command) => dispatch(&Lctl::load()?, command),
+        None => commands::list::run(&Lctl::load()?, &ListArgs::default()),
     }
 }
 
@@ -48,6 +51,7 @@ fn dispatch(lctl: &Lctl, command: Commands) -> Result<()> {
         Commands::Uninstall(args) => commands::uninstall::run(lctl, &args),
         Commands::Enable(args) => commands::enable::run(lctl, &args),
         Commands::Disable(args) => commands::disable::run(lctl, &args),
+        Commands::Doctor(args) => commands::doctor::run(lctl, &args),
         Commands::Completion { .. } => unreachable!("handled in run()"),
     }
 }

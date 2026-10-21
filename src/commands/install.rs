@@ -1,4 +1,5 @@
 use crate::cli::{InstallArgs, InstallDomain, InstallStrategy};
+use crate::doctor;
 use crate::error::{Error, Result, err_msg};
 use crate::launchctl;
 use crate::lctl::Lctl;
@@ -36,7 +37,7 @@ pub(crate) fn run(lctl: &Lctl, args: &InstallArgs) -> Result<()> {
     let target_path = make_target_path(lctl, &selected_domain, &service_name)?;
     install_file(&args.strategy, &source_path, &target_path, &selected_domain)?;
 
-    unload_existing_service(lctl, &service_name)?;
+    free_label(lctl, &service_name)?;
 
     let daemon = Daemon::from_plist(
         plist_data,
@@ -46,9 +47,13 @@ pub(crate) fn run(lctl: &Lctl, args: &InstallArgs) -> Result<()> {
         lctl.uid.as_raw(),
     );
 
-    let result = launchctl::bootstrap(&daemon)?;
-    result.require_ok(&format!("install {}", daemon.name))?;
+    super::step(&daemon, launchctl::bootstrap, "install")?;
     stdout::success(&format!("installed {}", daemon.name));
+
+    let installed = Daemon { loaded: true, ..daemon };
+    for check in doctor::check(&installed, None).iter().filter(|check| check.is_problem()) {
+        stdout::writeln(&format!("  {}", styles::check(check)));
+    }
     Ok(())
 }
 
@@ -95,14 +100,22 @@ fn infer_domain_from_lctl_path(lctl: &Lctl, resolved: &Path) -> Option<Domain> {
     None
 }
 
-fn unload_existing_service(lctl: &Lctl, service_name: &str) -> Result<()> {
+/// Make the bootstrap possible: unload a loaded service with the same label (after asking),
+/// and clear a leftover disabled flag.
+fn free_label(lctl: &Lctl, service_name: &str) -> Result<()> {
     let daemon = match super::resolve_daemon(lctl, service_name, true) {
-        Ok(daemon) if daemon.loaded => daemon,
-        Ok(_) | Err(Error::NotFound(_)) => return Ok(()), // not loaded. proceed.
+        Ok(daemon) => daemon,
+        Err(Error::NotFound(_)) => return Ok(()),
         Err(e) => return Err(e),
     };
-    confirm_unload_existing_service(daemon)?;
-    super::disable_and_unload(daemon)?;
+    if daemon.loaded {
+        confirm_unload_existing_service(daemon)?;
+        super::disable_and_unload(daemon)?;
+    } else if daemon.disabled {
+        stdout::hint(&format!("{} was disabled; enabling it", daemon.name));
+    } else {
+        return Ok(());
+    }
     super::step(daemon, launchctl::enable, "enable")
 }
 

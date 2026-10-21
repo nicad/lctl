@@ -1,41 +1,96 @@
 use crate::cli::{ListArgs, SortBy};
+use crate::describe;
 use crate::error::Result;
 use crate::lctl::Lctl;
 use crate::output;
 use crate::output::stdout;
 use crate::styles;
-use crate::types::ForWhom;
+use crate::types::{Daemon, ForWhom, ServiceState};
 
 pub(crate) fn run(lctl: &Lctl, args: &ListArgs) -> Result<()> {
     let query = args.pattern.as_deref().unwrap_or("");
-    let mut matching_daemons = lctl.daemons.get_matches(query, args.exact);
-    sort_daemons(args.sort_by, &mut matching_daemons);
+    let mut daemons: Vec<&Daemon> = lctl
+        .daemons
+        .get_matches(query, args.exact)
+        .into_iter()
+        .filter(|daemon| is_listed(daemon, args))
+        .collect();
+    sort_daemons(args.sort_by, &mut daemons);
 
-    let mut table = styles::create_table();
-    table.set_header(vec!["EC", "PID", "Domain", "Name", "Source"]);
-
-    for daemon in &matching_daemons {
-        if (daemon.for_use_by == ForWhom::Apple && !args.show_apple)
-            || (daemon.source_path.is_none() && !args.show_dynamic)
-            || (daemon.pid.is_none() && !args.show_idle)
-        {
-            continue;
+    if args.labels_only {
+        for daemon in &daemons {
+            stdout::writeln(&daemon.name);
         }
-
-        table.add_row(vec![
-            daemon.last_exit_code.clone().unwrap_or("-".to_string()),
-            daemon.pid.map_or("-".to_string(), |p| p.to_string()),
-            daemon.domain.to_string(),
-            daemon.name.clone(),
-            styles::display_path(daemon, output::is_verbose()),
-        ]);
+        return Ok(());
     }
 
+    let mut table = styles::create_table();
+    table.set_header(vec!["State", "PID", "Domain", "Label", "Runs when", "Plist"]);
+    for daemon in &daemons {
+        table.add_row(vec![
+            styles::state_cell(&daemon.state()),
+            daemon.pid.map_or("-".to_string(), |pid| pid.to_string()).into(),
+            daemon.domain.to_string().into(),
+            daemon.name.clone().into(),
+            daemon.plist.as_ref().map_or("-".to_string(), describe::runs_when).into(),
+            styles::display_path(daemon, output::is_verbose()).into(),
+        ]);
+    }
     stdout::writeln(&table);
+    stdout::writeln(&summary(&daemons));
     Ok(())
 }
 
-fn sort_daemons(sort_by: SortBy, daemons: &mut Vec<&crate::types::Daemon>) {
+/// What `list` shows by default (with a plist on disk, not Apple's), sorted by label.
+pub(crate) fn your_services(lctl: &Lctl) -> Vec<&Daemon> {
+    let defaults = ListArgs::default();
+    let mut daemons: Vec<&Daemon> = lctl
+        .daemons
+        .get_matches("", false)
+        .into_iter()
+        .filter(|daemon| is_listed(daemon, &defaults))
+        .collect();
+    sort_daemons(SortBy::Name, &mut daemons);
+    daemons
+}
+
+fn is_listed(daemon: &Daemon, args: &ListArgs) -> bool {
+    if (daemon.for_use_by == ForWhom::Apple && !args.show_apple)
+        || (daemon.source_path.is_none() && !args.show_dynamic)
+    {
+        return false;
+    }
+    if !(args.running || args.idle || args.failed || args.not_loaded || args.disabled) {
+        return true;
+    }
+    match daemon.state() {
+        ServiceState::Running => args.running,
+        ServiceState::Idle => args.idle,
+        ServiceState::Failed(_) => args.failed,
+        ServiceState::NotLoaded => args.not_loaded,
+        ServiceState::Disabled => args.disabled,
+    }
+}
+
+/// e.g. "7 services: 4 running, 1 failed, 2 not loaded · lctl status <name> for details"
+fn summary(daemons: &[&Daemon]) -> String {
+    let breakdown: Vec<String> = ServiceState::NAMES
+        .iter()
+        .filter_map(|name| {
+            let count = daemons.iter().filter(|daemon| daemon.state().name() == *name).count();
+            (count > 0).then(|| format!("{count} {name}"))
+        })
+        .collect();
+    let services = if daemons.len() == 1 { "service" } else { "services" };
+    styles::command(&format!(
+        "{} {services}{}{} · lctl status <name> for details · lctl doctor checks for problems",
+        daemons.len(),
+        if breakdown.is_empty() { "" } else { ": " },
+        breakdown.join(", "),
+    ))
+}
+
+fn sort_daemons(sort_by: SortBy, daemons: &mut Vec<&Daemon>) {
     match sort_by {
         SortBy::Name => {
             daemons.sort_by(|a, b| a.name.cmp(&b.name));
@@ -53,7 +108,7 @@ fn sort_daemons(sort_by: SortBy, daemons: &mut Vec<&crate::types::Daemon>) {
     }
 }
 
-fn get_parent_path(daemon: &crate::types::Daemon) -> &str {
+fn get_parent_path(daemon: &Daemon) -> &str {
     daemon
         .source_path
         .as_ref()

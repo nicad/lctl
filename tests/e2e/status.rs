@@ -1,5 +1,5 @@
+use crate::fixtures::ProgramKind;
 use crate::harness::{self, TempServiceBuilder};
-use predicates::prelude::*;
 
 #[test]
 fn status_shows_running_state() {
@@ -8,14 +8,14 @@ fn status_shows_running_state() {
     svc.install_via_lctl();
     harness::assert_running(&svc.target);
 
-    // Match table "State … running" (not "not running"). Dot line has ANSI between ● and text.
     harness::lctl()
         .args(["status", "-e", &svc.label])
         .assert()
         .success()
         .stdout(predicates::str::contains(&svc.label))
-        .stdout(predicates::str::is_match(r"(?m)State\s+running\b").unwrap())
-        .stdout(predicates::str::contains("not running").not());
+        .stdout(predicates::str::contains("running"))
+        .stdout(predicates::str::contains("/bin/sleep 999999"))
+        .stdout(predicates::str::contains("lctl stop"));
 }
 
 #[test]
@@ -33,6 +33,21 @@ fn status_reports_not_loaded() {
 }
 
 #[test]
+fn status_flags_plist_changed_since_load() {
+    harness::require_macos();
+    let svc = TempServiceBuilder::gui("status-changed").build();
+    svc.install_via_lctl();
+    svc.rewrite_fixture(ProgramKind::Sleep, false);
+
+    harness::lctl()
+        .args(["status", "-e", &svc.label])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("changed on disk"))
+        .stdout(predicates::str::contains(format!("lctl reload {}", svc.label)));
+}
+
+#[test]
 #[ignore = "system domain; run: sudo -v && cargo e2e-all"]
 fn system_status_shows_running_state() {
     harness::require_root_e2e();
@@ -45,6 +60,6 @@ fn system_status_shows_running_state() {
         .assert()
         .success()
         .stdout(predicates::str::contains(&svc.label))
-        .stdout(predicates::str::is_match(r"(?m)State\s+running\b").unwrap())
-        .stdout(predicates::str::contains("not running").not());
+        .stdout(predicates::str::contains("running"))
+        .stdout(predicates::str::contains("/bin/sleep 999999"));
 }

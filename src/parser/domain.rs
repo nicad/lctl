@@ -9,6 +9,7 @@ use nom::{
     multi::many_till,
     sequence::{preceded, terminated},
 };
+use std::collections::HashSet;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DomainService {
@@ -17,10 +18,35 @@ pub struct DomainService {
     pub name: String,
 }
 
-pub fn parse_print_domain(domain: &Domain) -> Result<Vec<DomainService>> {
+pub struct DomainListing {
+    pub services: Vec<DomainService>,
+    /// Labels with launchd's disabled flag set in this domain (loaded or not).
+    pub disabled: HashSet<String>,
+}
+
+pub fn parse_print_domain(domain: &Domain) -> Result<DomainListing> {
     let result = launchctl::print(&domain.to_string())?;
     result.require_ok(&format!("print domain {}", domain))?;
-    parse_domain_output(result.stdout.as_bytes())
+    Ok(DomainListing {
+        services: parse_domain_output(result.stdout.as_bytes())?,
+        disabled: parse_disabled_services(&result.stdout),
+    })
+}
+
+/// Labels marked `=> disabled` in the `disabled services = { … }` block.
+pub fn parse_disabled_services(input: &str) -> HashSet<String> {
+    let Some(start) = input.find("disabled services = {") else {
+        return HashSet::new();
+    };
+    input[start..]
+        .lines()
+        .skip(1)
+        .take_while(|line| line.trim() != "}")
+        .filter_map(|line| {
+            let (label, state) = line.trim().rsplit_once(" => ")?;
+            (state == "disabled").then(|| label.trim_matches('"').to_string())
+        })
+        .collect()
 }
 
 pub fn parse_domain_output(input: &[u8]) -> Result<Vec<DomainService>> {

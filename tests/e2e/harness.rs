@@ -358,6 +358,11 @@ impl TempServiceBuilder {
         self
     }
 
+    pub fn missing_program(mut self) -> Self {
+        self.program = ProgramKind::Missing;
+        self
+    }
+
     pub fn run_at_load(mut self) -> Self {
         self.run_at_load = true;
         self

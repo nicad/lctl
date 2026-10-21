@@ -15,6 +15,8 @@ pub enum ProgramKind {
     Sleep,
     /// Writes a marker line to stdout then sleeps (for logs tests)
     EchoThenSleep,
+    /// A program path that doesn't exist (for doctor tests)
+    Missing,
 }
 
 pub struct PlistSpec<'a> {
@@ -54,6 +56,10 @@ fn render_plist(spec: &PlistSpec<'_>) -> String {
             String::new(),
             "\t<key>ProgramArguments</key>\n\t<array>\n\t\t<string>/bin/sleep</string>\n\t\t<string>999999</string>\n\t</array>\n"
                 .to_string(),
+        ),
+        ProgramKind::Missing => (
+            "\t<key>Program</key>\n\t<string>/nonexistent/lctl-e2e-missing</string>\n".to_string(),
+            String::new(),
         ),
         ProgramKind::EchoThenSleep => (
             String::new(),

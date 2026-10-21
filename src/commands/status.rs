@@ -1,135 +1,158 @@
-use crate::cli::StatusArgs;
+use crate::cli::{ListArgs, StatusArgs};
+use crate::describe;
+use crate::doctor::{self, Check};
 use crate::error::Result;
-use crate::launchctl;
+use crate::launchctl::LaunchctlOutput;
 use crate::lctl::Lctl;
 use crate::output::stdout;
-use crate::parser::{self, ServiceItem};
+use crate::parser::{self, ParsedService, ServiceItem};
 use crate::styles;
-use crate::types::Daemon;
-use comfy_table::Table;
-use crossterm::style::Color;
+use crate::types::{Daemon, Plist, ServiceState};
+use crossterm::style::{Color, Stylize};
 
 pub(crate) fn run(lctl: &Lctl, args: &StatusArgs) -> Result<()> {
-    let daemon = super::resolve_daemon(lctl, &args.target.name, args.target.exact)?;
+    let Some(name) = &args.target.name else {
+        return super::list::run(lctl, &ListArgs::default());
+    };
+    let daemon = super::resolve_daemon(lctl, name, args.target.exact)?;
 
-    if !daemon.loaded {
-        print_header(daemon, "not loaded");
-        let mut table = styles::create_table();
-        add_source_row(&mut table, daemon);
-        stdout::writeln(&table);
-        return Ok(());
-    }
+    let output = super::print_if_loaded(daemon)?;
+    let parsed =
+        output.as_ref().and_then(|output| parser::parse_launchctl_service(output, daemon).ok());
 
-    // Get launchctl result once (reuse for debug and parsing)
-    let result = launchctl::print(&daemon.service_target())?;
-
-    // Debug output
-    if args.debug {
-        stdout::writeln(&styles::prefix(Color::Yellow, "=== Rendered launchctl print output ==="));
-        stdout::writeln(&result.stdout);
-        stdout::writeln("");
-        stdout::writeln(&styles::prefix(Color::Yellow, "=== Raw launchctl print output ==="));
-        let escaped_output = result.stdout.replace('\n', "\\n").replace('\t', "\\t");
-        stdout::writeln(&escaped_output);
-        stdout::writeln("");
-    }
-
-    let parsed = parser::parse_launchctl_service(&result, daemon)?;
+    let checks = doctor::check(daemon, parsed.as_ref());
+    print_summary(daemon, parsed.as_ref(), &checks);
 
     if args.debug {
-        stdout::writeln(&styles::prefix(Color::Yellow, "=== Parsed output (pretty print) ==="));
-        stdout::writeln(&format!("{:#?}", parsed));
-        stdout::writeln("");
-    }
-
-    let status = parsed
-        .get("state")
-        .and_then(|v| match v {
-            ServiceItem::Str(s) => Some(*s),
-            _ => None,
-        })
-        .unwrap_or("unknown");
-    print_header(daemon, status);
-
-    let mut table = styles::create_table();
-    let mut shown_fields = std::collections::HashSet::new();
-
-    add_field_if_present(&mut table, &parsed, &mut shown_fields, "state", "State");
-    add_field_if_present(&mut table, &parsed, &mut shown_fields, "pid", "PID");
-    add_field_if_present(&mut table, &parsed, &mut shown_fields, "path", "Path");
-    add_field_if_present(&mut table, &parsed, &mut shown_fields, "program", "Program");
-
-    add_source_row(&mut table, daemon);
-
-    format_arguments(&mut table, &parsed, &mut shown_fields);
-
-    let mut remaining: Vec<_> = parsed.iter().map(|(k, v)| (*k, v)).collect();
-    remaining.sort_by_key(|(k, _)| *k);
-
-    for (key, value) in remaining {
-        if shown_fields.contains(key) {
-            continue;
-        }
-        match value {
-            ServiceItem::Dict(items) => {
-                table.add_row(vec![key.to_string(), create_nested_table(items)]);
-            }
-            ServiceItem::Array(_) | ServiceItem::Str(_) | ServiceItem::KeyValue(_, _) => {
-                let display_value = format_value_for_display(value);
-                table.add_row(vec![key.to_string(), display_value]);
-            }
+        match (&output, &parsed) {
+            (Some(output), Some(parsed)) => print_all_fields(output, parsed),
+            _ => stdout::writeln("\nNot loaded: launchd has no fields to show."),
         }
     }
-
-    stdout::writeln(&table);
     Ok(())
 }
 
-fn print_header(daemon: &Daemon, status: &str) {
-    let color = if status == "running" { None } else { Some(Color::Red) };
-    stdout::writeln(&styles::prefix(Color::Blue, &daemon.name));
-    stdout::writeln(&styles::format_status_dot(status, color));
-}
-
-fn add_source_row(table: &mut Table, daemon: &Daemon) {
-    if daemon.source_path.is_some() {
-        table.add_row(vec!["Source".to_string(), styles::display_path(daemon, true)]);
+fn print_summary(daemon: &Daemon, print: Option<&ParsedService>, checks: &[Check]) {
+    stdout::writeln(&format!(
+        "{}  {}",
+        styles::prefix(Color::Blue, &daemon.name),
+        styles::state(&daemon.state())
+    ));
+    row(
+        "Domain",
+        &format!(
+            "{} · {} · {}",
+            daemon.domain,
+            if daemon.loaded { "loaded" } else { "not loaded" },
+            if daemon.disabled { "disabled" } else { "enabled" }
+        ),
+    );
+    if let Some(pid) = daemon.pid {
+        row("PID", &pid.to_string());
+    }
+    if let Some(command) = command_line(daemon, print) {
+        row("Runs", &command);
+    }
+    if let Some(plist) = &daemon.plist {
+        row("When", &describe::runs_when(plist));
+        row("Logs", &log_files(plist));
+    }
+    if let Some(path) = &daemon.source_path {
+        row("Plist", styles::display_source_path(path, true).trim_start());
+    }
+    let problems: Vec<String> =
+        checks.iter().filter(|check| check.is_problem()).map(styles::check).collect();
+    rows("Checks", &problems);
+    rows("Next", &next_steps(daemon, checks));
+    if daemon.loaded {
+        stdout::writeln(&styles::command(&format!(
+            "lctl status -d {} shows all launchd fields",
+            daemon.name
+        )));
     }
 }
 
-fn add_field_if_present<'a>(
-    table: &mut Table,
-    parsed: &crate::parser::ParsedService<'_>,
-    shown_fields: &mut std::collections::HashSet<&'a str>,
-    key: &'a str,
-    label: &str,
-) {
-    if let Some(ServiceItem::Str(s)) = parsed.get(key) {
-        table.add_row(vec![label.to_string(), (*s).to_string()]);
-        shown_fields.insert(key);
+fn row(label: &str, value: &str) {
+    stdout::writeln(&format!("{}{value}", format!("{label:<8}").bold()));
+}
+
+fn rows(label: &str, values: &[String]) {
+    for (i, value) in values.iter().enumerate() {
+        row(if i == 0 { label } else { "" }, value);
     }
 }
 
-fn format_arguments(
-    table: &mut Table,
-    parsed: &crate::parser::ParsedService<'_>,
-    shown_fields: &mut std::collections::HashSet<&str>,
-) {
-    if let Some(ServiceItem::Array(args)) = parsed.get("arguments") {
-        if !args.is_empty() {
-            let arg_strings: Vec<String> = args
-                .iter()
-                .filter_map(|v| match v {
-                    ServiceItem::Str(s) => Some((*s).to_string()),
-                    _ => None,
-                })
-                .collect();
-            if !arg_strings.is_empty() {
-                table.add_row(vec!["Arguments".to_string(), arg_strings.join(" ")]);
+/// Program and arguments as launchd runs them: from the plist on disk, else from what's loaded.
+fn command_line(daemon: &Daemon, print: Option<&ParsedService>) -> Option<String> {
+    let (program, arguments): (&str, Vec<&str>) = match &daemon.plist {
+        Some(plist) => (
+            plist.executable()?,
+            plist.program_arguments.iter().flatten().map(String::as_str).collect(),
+        ),
+        None => {
+            let print = print?;
+            (
+                parser::str_field(print, "program")?,
+                parser::list_field(print, "arguments").unwrap_or_default(),
+            )
+        }
+    };
+    // arguments[0] is argv[0], normally the program itself
+    let words = std::iter::once(program).chain(arguments.into_iter().skip(1));
+    Some(words.map(quote).collect::<Vec<_>>().join(" "))
+}
+
+fn quote(word: &str) -> String {
+    if !word.is_empty() && !word.contains(char::is_whitespace) && !word.contains('\'') {
+        word.to_string()
+    } else {
+        format!("'{}'", word.replace('\'', r"'\''"))
+    }
+}
+
+fn log_files(plist: &Plist) -> String {
+    match (&plist.standard_out_path, &plist.standard_error_path) {
+        (Some(out), Some(err)) if out == err => format!("{out} (stdout and stderr)"),
+        (Some(out), Some(err)) => format!("{out} (stdout), {err} (stderr)"),
+        (Some(out), None) => format!("{out} (stdout)"),
+        (None, Some(err)) => format!("{err} (stderr)"),
+        (None, None) => {
+            "none: output is discarded (lctl logs also reads the unified log)".to_string()
+        }
+    }
+}
+
+/// The fixes for any problems; with none, the usual commands for the state.
+fn next_steps(daemon: &Daemon, checks: &[Check]) -> Vec<String> {
+    if checks.iter().any(Check::is_problem) {
+        let mut fixes = Vec::new();
+        for fix in checks.iter().filter(|check| check.is_problem()).filter_map(|c| c.fix.clone()) {
+            if !fixes.contains(&fix) {
+                fixes.push(fix);
             }
         }
-        shown_fields.insert("arguments");
+        return fixes;
     }
+    // without problems the service is running or idle (other states are reported as problems)
+    let verbs: &[&str] = if daemon.state() == ServiceState::Running {
+        &["logs", "restart", "stop"]
+    } else {
+        &["start"]
+    };
+    verbs.iter().map(|verb| format!("lctl {verb} {}", daemon.name)).collect()
+}
+
+fn print_all_fields(output: &LaunchctlOutput, parsed: &ParsedService) {
+    let mut fields: Vec<_> = parsed.iter().collect();
+    fields.sort_by_key(|(key, _)| **key);
+    let mut table = styles::create_table();
+    for (key, value) in fields {
+        table.add_row(vec![key.to_string(), format_value_for_display(value)]);
+    }
+    stdout::writeln("");
+    stdout::writeln(&table);
+    stdout::writeln(&styles::prefix(Color::Yellow, "launchctl print output:"));
+    stdout::writeln(&output.stdout);
 }
 
 fn format_value_for_display(value: &ServiceItem<&str>) -> String {

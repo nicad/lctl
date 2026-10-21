@@ -65,3 +65,18 @@ fn system_start_loads_unloaded_plist() {
 
     harness::assert_running_sudo(&svc.target);
 }
+
+#[test]
+fn start_on_disabled_service_says_enable_first() {
+    harness::require_macos();
+    let mut svc = TempServiceBuilder::gui("start-disabled").sleep().build();
+    svc.install_via_lctl();
+    harness::lctl().args(["disable", "-e", &svc.label]).assert().success();
+    svc.mark_disabled();
+
+    harness::lctl()
+        .args(["start", "-e", &svc.label])
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains(format!("lctl enable {}", svc.label)));
+}

@@ -26,6 +26,16 @@ error_set! {
             detail: String,
         },
 
+        #[display("{name} is disabled: run `lctl enable {name}` first")]
+        Disabled {
+            name: String,
+        },
+
+        #[display("{failed} doctor check(s) failed")]
+        ChecksFailed {
+            failed: usize,
+        },
+
         #[display("{0}")]
         Unexpected(BasicError),
     }
@@ -64,6 +74,17 @@ from_unexpected!(std::io::Error, plist::Error, nix::Error, dialoguer::Error);
 impl Error {
     pub fn launchctl(action: impl Into<String>, detail: impl Into<String>) -> Self {
         Error::Launchctl { action: action.into(), detail: detail.into() }
+    }
+
+    /// Append a suggestion to a launchctl failure; other errors are returned unchanged.
+    pub fn with_hint(self, suggestion: Option<String>) -> Self {
+        match (self, suggestion) {
+            (Error::Launchctl { action, detail }, Some(suggestion)) => Error::Launchctl {
+                action,
+                detail: format!("{}\n  hint: {suggestion}", detail.trim_end()),
+            },
+            (error, _) => error,
+        }
     }
 
     pub fn unexpected(msg: impl std::fmt::Display) -> Self {

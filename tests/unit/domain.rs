@@ -58,6 +58,7 @@ fn service_target_formats_domain_and_name() {
         pid: None,
         last_exit_code: None,
         loaded: false,
+        disabled: false,
     };
     assert_eq!(daemon.service_target(), "gui/501/com.example.svc");
 }
@@ -92,6 +93,29 @@ fn require_source_path_errors_when_missing() {
         pid: None,
         last_exit_code: None,
         loaded: false,
+        disabled: false,
     };
     assert!(daemon.require_source_path().is_err());
+}
+
+#[test]
+fn state_from_launchd_fields() {
+    use lctl::types::ServiceState;
+    let mut daemon =
+        Daemon::from_plist(Plist::default(), None, Domain::Gui(501), ForWhom::User, 501);
+    assert_eq!(daemon.state(), ServiceState::NotLoaded);
+
+    daemon.disabled = true;
+    assert_eq!(daemon.state(), ServiceState::Disabled);
+
+    daemon.loaded = true;
+    for idle_code in ["-", "0", "(jt)"] {
+        daemon.last_exit_code = Some(idle_code.into());
+        assert_eq!(daemon.state(), ServiceState::Idle, "exit code {idle_code}");
+    }
+    daemon.last_exit_code = Some("78".into());
+    assert_eq!(daemon.state(), ServiceState::Failed(78));
+
+    daemon.pid = Some(42);
+    assert_eq!(daemon.state(), ServiceState::Running);
 }

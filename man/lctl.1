@@ -9,7 +9,7 @@
 .Nm
 .Op Fl v | Fl \-verbose
 .Op Fl y | Fl \-yes
-.Ar command
+.Op Ar command
 .Op Ar options
 .Op Ar args
 .Sh DESCRIPTION
@@ -23,6 +23,12 @@ It wraps common
 .Xr launchctl 1
 workflows for installing, starting, stopping,
 restarting, listing, inspecting, and logging services.
+.Pp
+Without a
+.Ar command ,
+.Nm
+lists your services, like
+.Cm list .
 .Pp
 Service names may be matched fuzzily unless
 .Fl e Ns / Ns Fl \-exact
@@ -135,21 +141,29 @@ Picks up plist edits and symlink target changes.
 .Op Fl e | Fl \-exact
 .Ar name
 .Ss status
-Show service status parsed from
-.Cm launchctl print ,
-or
-.Dq not loaded .
+Show one service on one screen: state, domain, enabled or disabled, PID,
+the command it runs, when it runs, log files, plist path, problems found by
+the checks of
+.Cm doctor ,
+and the next commands to run.
+Calls
+.Cm launchctl print
+when the service is loaded.
+Without a
+.Ar name ,
+same as
+.Cm list .
 .Pp
 .Nm
 .Cm status
 .Op Fl e | Fl \-exact
 .Op Fl d | Fl \-debug
-.Ar name
+.Op Ar name
 .Bl -tag -width Ds
 .It Fl d , Fl \-debug
-Show raw
-.Xr launchctl 1
-output and parsed data.
+Also show every launchd field and the raw
+.Cm launchctl print
+output.
 .El
 .Ss logs
 Show the last 50 lines of the plist's
@@ -175,9 +189,9 @@ Default:
 .Ar 5m .
 .El
 .Ss list
-List services.
-By default only services that are running, have a plist on disk, and are not
-Apple's.
+List services with their state (running, idle, failed, not loaded,
+disabled), PID, domain, label, when they run, and plist path.
+By default: services with a plist on disk that are not Apple's, in any state.
 Alias:
 .Cm ls .
 .Pp
@@ -186,7 +200,12 @@ Alias:
 .Op Fl e | Fl \-exact
 .Op Fl a | Fl \-apple
 .Op Fl d | Fl \-dynamic
-.Op Fl i | Fl \-idle
+.Op Fl \-running
+.Op Fl \-idle
+.Op Fl \-failed
+.Op Fl \-not-loaded
+.Op Fl \-disabled
+.Op Fl 1 | Fl \-labels
 .Op Fl s | Fl \-sort Ar field
 .Op Ar pattern
 .Bl -tag -width Ds
@@ -194,8 +213,10 @@ Alias:
 Include Apple services.
 .It Fl d , Fl \-dynamic
 Include services without a plist on disk.
-.It Fl i , Fl \-idle
-Include services that are not running.
+.It Fl \-running , Fl \-idle , Fl \-failed , Fl \-not-loaded , Fl \-disabled
+Only services in these states; can be combined.
+.It Fl 1 , Fl \-labels
+Print labels only, one per line.
 .It Fl s , Fl \-sort Ar field
 Sort by
 .Ar parent ,
@@ -228,6 +249,27 @@ Persists across reboots until
 .Cm disable
 .Op Fl e | Fl \-exact
 .Ar name
+.Ss doctor
+Check plists and services for problems: missing Label, wrong owner or
+permissions, missing or non-executable program, missing WorkingDirectory or
+log directory, no launch trigger, very short StartInterval, and a loaded
+definition that differs from the plist on disk.
+Prints the command that fixes each problem when there is one.
+Without a
+.Ar name ,
+checks all the services
+.Cm list
+shows by default and prints only those with problems
+.Po
+.Fl v :
+all checks
+.Pc .
+Exits non-zero if a check fails.
+.Pp
+.Nm
+.Cm doctor
+.Op Fl e | Fl \-exact
+.Op Ar name
 .Sh COMMON OPTIONS
 Most commands that take a service
 .Ar name

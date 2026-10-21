@@ -5,13 +5,14 @@ use clap::{Args, Parser, Subcommand, ValueEnum};
 #[command(about = "A simpler CLI on top of macOS launchctl", version = env!("CARGO_PKG_VERSION"))]
 pub struct Cli {
     /// Verbose output
-    #[arg(short, long)]
+    #[arg(short, long, global = true)]
     pub verbose: bool,
     /// Assume yes for confirmation prompts
-    #[arg(short = 'y', long = "yes")]
+    #[arg(short = 'y', long = "yes", global = true)]
     pub yes: bool,
+    /// No command: overview of your services (same as `lctl list`)
     #[command(subcommand)]
-    pub command: Commands,
+    pub command: Option<Commands>,
 }
 
 #[derive(Args)]
@@ -23,10 +24,20 @@ pub struct NameArgs {
     pub exact: bool,
 }
 
-#[derive(Clone, Copy, ValueEnum)]
+#[derive(Args)]
+pub struct OptionalNameArgs {
+    /// Service name (omit for all of your services)
+    pub name: Option<String>,
+    /// Exact match
+    #[arg(short, long)]
+    pub exact: bool,
+}
+
+#[derive(Clone, Copy, Default, ValueEnum)]
 pub enum SortBy {
     Parent,
     Domain,
+    #[default]
     Name,
 }
 
@@ -44,7 +55,7 @@ pub enum InstallDomain {
     System,
 }
 
-#[derive(Args)]
+#[derive(Args, Default)]
 pub struct ListArgs {
     /// Pattern to match
     pub pattern: Option<String>,
@@ -57,9 +68,24 @@ pub struct ListArgs {
     /// Also show services without a plist on disk
     #[arg(short = 'd', long = "dynamic")]
     pub show_dynamic: bool,
-    /// Also show services that are not running
-    #[arg(short = 'i', long = "idle")]
-    pub show_idle: bool,
+    /// Only running services (state filters can be combined)
+    #[arg(long)]
+    pub running: bool,
+    /// Only loaded services that are not running
+    #[arg(long)]
+    pub idle: bool,
+    /// Only services whose last run exited with an error
+    #[arg(long)]
+    pub failed: bool,
+    /// Only services that are not loaded
+    #[arg(long)]
+    pub not_loaded: bool,
+    /// Only disabled services
+    #[arg(long)]
+    pub disabled: bool,
+    /// Print labels only, one per line
+    #[arg(short = '1', long = "labels")]
+    pub labels_only: bool,
     /// Field to sort by
     #[arg(short = 's', long = "sort", default_value = "name")]
     pub sort_by: SortBy,
@@ -80,8 +106,8 @@ pub struct InstallArgs {
 #[derive(Args)]
 pub struct StatusArgs {
     #[command(flatten)]
-    pub target: NameArgs,
-    /// Debug output (show raw launchctl output and parsed data)
+    pub target: OptionalNameArgs,
+    /// Also show all launchd fields and the raw launchctl print output
     #[arg(short = 'd', long)]
     pub debug: bool,
 }
@@ -109,11 +135,11 @@ pub enum Commands {
     Restart(NameArgs),
     /// Unload and load again, picking up plist edits and symlink target changes
     Reload(NameArgs),
-    /// Show service status
+    /// Show a service's state, config and next steps (no name: overview)
     Status(StatusArgs),
     /// Show service logs
     Logs(LogsArgs),
-    /// List services
+    /// List services with their state and when they run
     #[command(alias = "ls")]
     List(ListArgs),
     /// Print a service's plist
@@ -122,6 +148,8 @@ pub enum Commands {
     Enable(NameArgs),
     /// Disable a service and unload it (persists across reboots)
     Disable(NameArgs),
+    /// Check plists and services for common problems (no name: all of yours)
+    Doctor(OptionalNameArgs),
     /// Generate shell completions
     Completion {
         /// Shell to generate completions for

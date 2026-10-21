@@ -1,4 +1,4 @@
-use lctl::parser::{DomainService, parse_domain_output};
+use lctl::parser::{DomainService, parse_disabled_services, parse_domain_output};
 
 #[test]
 fn parses_services_block() {
@@ -42,6 +42,23 @@ fn zero_pid_means_not_running() {
 "#;
     let services = parse_domain_output(input).unwrap();
     assert_eq!(services[0].pid, None);
+}
+
+#[test]
+fn parses_disabled_services_block() {
+    let input = r#"gui/501 = {
+	services = {
+	}
+	disabled services = {
+		"com.example.on" => enabled
+		"com.example.off" => disabled
+	}
+}
+"#;
+    let disabled = parse_disabled_services(input);
+    assert_eq!(disabled.len(), 1);
+    assert!(disabled.contains("com.example.off"));
+    assert!(parse_disabled_services("gui/501 = {\n}\n").is_empty());
 }
 
 #[test]
