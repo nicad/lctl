@@ -270,6 +270,39 @@ Exits non-zero if a check fails.
 .Cm doctor
 .Op Fl e | Fl \-exact
 .Op Ar name
+.Ss explain
+Print what
+.Nm
+runs under the hood: the
+.Xr launchctl 1
+commands behind each
+.Nm
+command, the
+.Xr launchctl 1
+to
+.Nm
+mapping, the install and uninstall steps, and the doctor checks.
+This is the
+.Dq How lctl maps to launchctl
+section of the README, built into the binary.
+With a
+.Ar command ,
+such as
+.Cm stop
+or the
+.Xr launchctl 1
+verb
+.Cm load ,
+it prints only the parts about that command.
+Every
+.Fl \-help
+page ends with the matching
+.Cm explain
+command.
+.Pp
+.Nm
+.Cm explain
+.Op Ar command
 .Sh COMMON OPTIONS
 Most commands that take a service
 .Ar name

@@ -5,6 +5,7 @@ pub mod daemon;
 pub mod describe;
 pub mod doctor;
 pub mod error;
+pub mod explain;
 pub mod launchctl;
 pub mod lctl;
 pub mod output;
@@ -28,10 +29,10 @@ pub fn run() -> Result<()> {
 
     match cli.command {
         Some(Commands::Completion { shell }) => {
-            let mut cmd = Cli::command();
-            clap_complete::generate(shell, &mut cmd, "lctl", &mut std::io::stdout());
+            clap_complete::generate(shell, &mut Cli::command(), "lctl", &mut std::io::stdout());
             Ok(())
         }
+        Some(Commands::Explain { command }) => commands::explain::run(command.as_deref()),
         Some(command) => dispatch(&Lctl::load()?, command),
         None => commands::list::run(&Lctl::load()?, &ListArgs::default()),
     }
@@ -52,7 +53,7 @@ fn dispatch(lctl: &Lctl, command: Commands) -> Result<()> {
         Commands::Enable(args) => commands::enable::run(lctl, &args),
         Commands::Disable(args) => commands::disable::run(lctl, &args),
         Commands::Doctor(args) => commands::doctor::run(lctl, &args),
-        Commands::Completion { .. } => unreachable!("handled in run()"),
+        Commands::Completion { .. } | Commands::Explain { .. } => unreachable!("handled in run()"),
     }
 }
 

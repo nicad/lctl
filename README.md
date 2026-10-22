@@ -39,6 +39,7 @@ lctl completion fish > ~/.config/fish/completions/lctl.fish
 lctl                        # your services: state, schedule, plist
 lctl status my.service      # one service: what it runs, when, logs, problems, next steps
 lctl doctor                 # check all your services for problems
+lctl explain stop           # the launchctl calls behind a command (also: lctl explain load)
 
 lctl install ./my.service.plist
 lctl start my.service
@@ -67,9 +68,14 @@ Common flags:
 - `list -1` — labels only, one per line (for scripts)
 - `status -d` — also show every launchd field and the raw `launchctl print` output
 
-Run `lctl --help` or `lctl <command> --help` for options. See `man lctl` for the full manual.
+Run `lctl --help` or `lctl <command> --help` for options, and `lctl explain <command>` for the launchctl calls behind a command. See `man lctl` for the full manual.
 
+<!-- lctl explain: start -->
+<!-- Compiled into the binary and printed by `lctl explain`, up to the end marker.
+     Keep to headings, paragraphs, lists and tables (cells may use <br>). -->
 ## How lctl maps to launchctl
+
+This section is also built into lctl: `lctl explain` prints it, and `lctl explain <command>` prints only what concerns one lctl or launchctl command (e.g. `lctl explain stop`, `lctl explain load`).
 
 Run any command with `-v` to see each command lctl executes.
 
@@ -186,6 +192,7 @@ The legacy subcommands (`load`, `unload`, `start`, `stop`, `list`, `remove`) inf
 - **sudo.** lctl runs launchctl as you first. It retries as root only if launchctl's output contains `Try re-running the command as root`, or `Operation not permitted` without `System Integrity Protection` (sudo can't override SIP). With stdin on a terminal, lctl runs `/usr/bin/sudo -v`, which prompts the way sudo is configured (password, or Touch ID via `pam_tid`). It then reruns the command as `/usr/bin/sudo -n /bin/launchctl …`. Without a terminal there is no prompt and launchctl's error is reported as is. `install --domain system` and a cancelled prompt fail with "Sudo is required". lctl never reads or stores your password. launchctl prints the "re-running as root" hint on many failed `bootstrap` calls (for example, a disabled service), so such a failure can bring up a sudo prompt and then fail again with a more detailed error.
 - **Running lctl under `sudo`** also works: it uses `SUDO_UID` to find your home and `gui/<uid>`.
 
+<!-- lctl explain: end -->
 ## Configuration
 
 Directories scanned for plists:

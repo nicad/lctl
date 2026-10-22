@@ -1,6 +1,7 @@
 pub(crate) mod disable;
 pub(crate) mod doctor;
 pub(crate) mod enable;
+pub(crate) mod explain;
 pub(crate) mod install;
 pub(crate) mod list;
 pub(crate) mod logs;

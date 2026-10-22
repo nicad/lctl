@@ -6,6 +6,7 @@ mod harness;
 mod disable;
 mod doctor;
 mod enable;
+mod explain;
 mod install;
 mod list;
 mod logs;

@@ -3,6 +3,10 @@ use clap::{Args, Parser, Subcommand, ValueEnum};
 #[derive(Parser)]
 #[command(name = "lctl")]
 #[command(about = "A simpler CLI on top of macOS launchctl", version = env!("CARGO_PKG_VERSION"))]
+#[command(
+    after_help = "Run `lctl explain` to see the launchctl commands behind each lctl command.",
+    mut_subcommands = explain_hint
+)]
 pub struct Cli {
     /// Verbose output
     #[arg(short, long, global = true)]
@@ -13,6 +17,12 @@ pub struct Cli {
     /// No command: overview of your services (same as `lctl list`)
     #[command(subcommand)]
     pub command: Option<Commands>,
+}
+
+/// Ends each subcommand's help with where to see what it runs.
+fn explain_hint(subcommand: clap::Command) -> clap::Command {
+    let hint = format!("Under the hood: lctl explain {}", subcommand.get_name());
+    if subcommand.get_name() == "explain" { subcommand } else { subcommand.after_help(hint) }
 }
 
 #[derive(Args)]
@@ -150,6 +160,11 @@ pub enum Commands {
     Disable(NameArgs),
     /// Check plists and services for common problems (no name: all of yours)
     Doctor(OptionalNameArgs),
+    /// Show the launchctl commands behind lctl commands, and the reverse
+    Explain {
+        /// An lctl or launchctl command, e.g. `stop` or `bootout` (omit for everything)
+        command: Option<String>,
+    },
     /// Generate shell completions
     Completion {
         /// Shell to generate completions for
