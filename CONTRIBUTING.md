@@ -12,6 +12,12 @@ Pre-commit runs `cargo fmt --check --all` and blocks the commit if formatting fa
 ## Tests
 
 ```bash
+# unit + GUI e2e, no sudo
+make test
+
+# everything, including system e2e (asks for sudo; run from a real terminal)
+make test-all
+
 # unit + GUI e2e
 cargo test
 
