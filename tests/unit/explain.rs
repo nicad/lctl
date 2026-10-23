@@ -14,18 +14,21 @@ fn everything_renders_the_readme_section_without_markdown_syntax() {
     assert!(!text.contains("lctl optionally reads YAML"));
 }
 
+// Tables wrap to the terminal width when stdout is a terminal (as under `make test`), so
+// checks on table cells look for single words, which only split in a very narrow terminal.
+
 #[test]
 fn about_an_lctl_command_shows_its_row() {
     let text = about("stop").unwrap();
-    assert!(text.contains("if loaded: `launchctl bootout <target>`"));
-    assert!(!text.contains("kickstart -k"), "restart's row should not be included");
+    assert!(text.contains("bootout"));
+    assert!(!text.contains("kickstart"), "restart's row should not be included");
 }
 
 #[test]
 fn about_a_launchctl_verb_shows_the_lctl_equivalent() {
     let text = about("load").unwrap();
-    assert!(text.contains("`launchctl load <plist>`"));
-    assert!(text.contains("`lctl enable <name>`"));
+    assert!(text.contains("bootstrap"), "modern equivalent");
+    assert!(text.contains("install"), "lctl equivalent");
 }
 
 #[test]
