@@ -4,7 +4,7 @@ A simpler CLI on top of macOS `launchctl`.
 
 Fork of [angel](https://github.com/oliviaBahr/angel) by Olivia Bahr (MIT), renamed and maintained separately.
 
-- `lctl` on its own lists your services with their state (running, idle, failed, not loaded, disabled) and when they run
+- `lctl` on its own lists your services with their state (running, idle, failed, not loaded, disabled), how long they have been up and when they run
 - `lctl status <name>`: state, command, schedule, logs and plist on one screen, with problems and the next commands to run
 - `lctl doctor` checks plists for problems launchd won't tell you about (missing program, unwritable log directory, wrong owner, edits not reloaded…)
 - Commands named after what you want (`start`, `stop`, `enable`, `disable`, `reload`) that run the needed launchctl steps
@@ -36,7 +36,7 @@ lctl completion fish > ~/.config/fish/completions/lctl.fish
 ## Usage
 
 ```bash
-lctl                        # your services: state, schedule, plist
+lctl                        # your services: state, uptime, schedule (lctl ls -l: domain, plist)
 lctl status my.service      # one service: what it runs, when, logs, problems, next steps
 lctl doctor                 # check all your services for problems
 lctl explain stop           # the launchctl calls behind a command (also: lctl explain load)
@@ -66,6 +66,7 @@ Common flags:
 - `logs -t 5m` — log time frame (e.g. `1h`, `24h`)
 - `kill -s HUP` — signal name (`TERM`, `HUP`, `KILL`…, with or without `SIG`) or number; default `TERM`
 - `list --running` / `--idle` / `--failed` / `--not-loaded` / `--disabled` — only services in those states (combinable)
+- `list -l` (also `status -l` without a name) — also show the Domain and Plist columns
 - `list -a` / `-d` — also show Apple services / services without a plist on disk
 - `list -1` — labels only, one per line (for scripts)
 - `status -d` — also show every launchd field and the raw `launchctl print` output
@@ -108,10 +109,10 @@ Steps run in order. lctl stops at the first step that fails and prints launchctl
 | `kill <name>` | `launchctl kill <signal> <target>` | `<signal>` comes from `-s` (default `TERM`): a name such as `TERM`, `HUP`, `INT` or `KILL`, with or without `SIG`, in any case, or a number. The service stays loaded, so launchd starts it again if its `KeepAlive` asks for that; `stop` unloads it instead. If it isn't running, lctl stops before calling launchctl. |
 | `enable <name>` | 1. `launchctl enable <target>`<br>2. if not loaded: `launchctl bootstrap <domain> <plist>` | The flag change persists across reboots. Loading runs the process only if the plist asks for it; `start` runs it now. |
 | `disable <name>` | 1. `launchctl disable <target>`<br>2. if loaded: `launchctl bootout <target>` | Persists across reboots until `enable`. Disabling before the bootout keeps `KeepAlive` from restarting it. The plist stays on disk. |
-| `status <name>` | if loaded: `launchctl print <target>` | Shows the state, domain, enabled/disabled, PID, the command (from the plist, or from launchd when there is no plist), "runs when", log files, plist path, problems from the [doctor checks](#doctor-checks) and the next commands to run. "Next" lists the fixes for any problems; without problems, the usual commands for its state (running: `logs`, `restart`, `stop`; idle: `start`). `-d` adds every launchd field and the raw `launchctl print` output. |
-| `status` | nothing beyond discovery | Same as `list`. |
+| `status <name>` | if loaded: `launchctl print <target>` | Shows the state, domain, enabled/disabled, PID, when the process started and its uptime, the command (from the plist, or from launchd when there is no plist), "runs when", log files, plist path, problems from the [doctor checks](#doctor-checks) and the next commands to run. "Next" lists the fixes for any problems; without problems, the usual commands for its state (running: `logs`, `restart`, `stop`; idle: `start`). `-d` adds every launchd field and the raw `launchctl print` output. |
+| `status` | nothing beyond discovery | Same as `list` (`-l` too). |
 | `lctl` (no command) | nothing beyond discovery | Same as `list`. |
-| `list [pattern]` | nothing beyond discovery | Columns: state, PID, domain, label, "runs when" (from the plist's `RunAtLoad`, `KeepAlive`, `StartInterval`, `StartCalendarInterval`, `WatchPaths`, `QueueDirectories`, `StartOnMount`, `Sockets`/`MachServices`; "manual only" when none), plist path, then a count per state. Shows services that have a plist on disk and aren't Apple's, in any state. `--running`, `--idle`, `--failed`, `--not-loaded`, `--disabled` keep only those states (combinable); `-a` adds Apple's, `-d` adds services without a plist; `-1` prints labels only. "Apple" means a plist under `/System/Library`, or, for a service without a plist, a label containing `com.apple`. |
+| `list [pattern]` | nothing beyond discovery | Columns: state, PID, when the process started (the time if today, else the date) and its uptime, "runs when" (from the plist's `RunAtLoad`, `KeepAlive`, `StartInterval`, `StartCalendarInterval`, `WatchPaths`, `QueueDirectories`, `StartOnMount`, `Sockets`/`MachServices`; "manual only" when none), label; `-l` adds domain and plist path. Then a count per state. Shows services that have a plist on disk and aren't Apple's, in any state. `--running`, `--idle`, `--failed`, `--not-loaded`, `--disabled` keep only those states (combinable); `-a` adds Apple's, `-d` adds services without a plist; `-1` prints labels only. "Apple" means a plist under `/System/Library`, or, for a service without a plist, a label containing `com.apple`. |
 | `doctor [name]` | for each loaded service: `launchctl print <target>` | Runs the [doctor checks](#doctor-checks). Without a name it checks all the services `list` shows by default and prints only those with problems (`-v`: all, including passing checks). Exits with an error if any check fails. |
 | `logs <name>` | 1. print the last 50 lines of the plist's `StandardOutPath` and `StandardErrorPath` (those that exist)<br>2. `/usr/bin/log show --predicate 'process == "<program>"' --last <time> --style compact`, last 50 lines | `<program>` is the file name of `Program`, else of `ProgramArguments[0]`, else the label. `<time>` comes from `-t` (default `5m`). No launchctl call. |
 | `plist <name>` | read `<plist>` and print it | Text (XML) plists only; a binary plist fails (use `plutil -p`). |
@@ -189,6 +190,7 @@ The legacy subcommands (`load`, `unload`, `start`, `stop`, `list`, `remove`) inf
 ### What lctl does around those commands
 
 - **Discovery.** Every command except `completion` first runs `launchctl print system`, `launchctl print user/<uid>` and `launchctl print gui/<uid>`, and reads the plist directories listed under [Configuration](#configuration). A service listed by one of those `print` calls is loaded; one with PID `-` or `0` is not running. The same output's `disabled services` block gives each label's disabled flag. The state shown everywhere is: running (has a PID), failed (loaded, last exit code non-zero), idle (loaded otherwise), disabled (not loaded, flag set), not loaded.
+- **Start time and uptime.** launchd doesn't report when a process started. lctl asks the kernel for the PID's start time (`sysctl` `kern.proc.pid.<pid>`, which `ps` also reads); this works for root daemons without root and runs no extra program. Services that aren't running have none: launchd doesn't record when past runs started or ended.
 - **Error hints.** When a launchctl call fails, lctl adds a `hint:` line based on launchd's message: `Could not find service` (113) → `lctl start`; `Input/output error` (5, launchd's catch-all for a refused load) → `lctl reload` if it is already loaded, otherwise `lctl doctor` (for the `user` domain, also a note that agents for your login session belong in `gui`; a disabled service is caught before launchctl runs); `Operation already in progress` (37) → `lctl reload`; `Service is disabled` (119) → `lctl enable`; `Path had bad ownership/permissions` (122) → `lctl doctor`; `Invalid signal` (64) → signal names to use; SIP (150) → can't be changed; `Operation not permitted` (1) or the "re-run as root" message with no more specific error → needs root.
 - **Name resolution.** `<name>` is a case-insensitive substring of the label (`-e` for an exact match). If several services match, lctl shows a picker (`-y` picks the first alphabetically).
 - **Domain resolution.** A service's domain is, in order of precedence: the domain where launchd currently has it loaded; the plist's `LimitLoadToSessionType` (`Aqua` → `gui`, `Background`/`LoginWindow` → `user`, `System` → `system`); the domain of the directory the plist was found in.

@@ -23,6 +23,7 @@
     error_set   = "0.9"
     dirs        = "6"
     nix         = { version = "0.30", features = ["fs", "user"] }
+    libc        = "0.2"
     crossterm   = "0.29"
     comfy-table = { version = "7", features = ["reexport_crossterm"] }
     dialoguer   = "0.12"

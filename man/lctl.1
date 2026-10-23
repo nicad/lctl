@@ -172,8 +172,8 @@ Default:
 .El
 .Ss status
 Show one service on one screen: state, domain, enabled or disabled, PID,
-the command it runs, when it runs, log files, plist path, problems found by
-the checks of
+when the process started and its uptime, the command it runs, when it runs,
+log files, plist path, problems found by the checks of
 .Cm doctor ,
 and the next commands to run.
 Calls
@@ -188,12 +188,18 @@ same as
 .Cm status
 .Op Fl e | Fl \-exact
 .Op Fl d | Fl \-debug
+.Op Fl l | Fl \-long
 .Op Ar name
 .Bl -tag -width Ds
 .It Fl d , Fl \-debug
 Also show every launchd field and the raw
 .Cm launchctl print
 output.
+.It Fl l , Fl \-long
+Without a
+.Ar name :
+as
+.Cm list Fl l .
 .El
 .Ss logs
 Show the last 50 lines of the plist's
@@ -220,7 +226,8 @@ Default:
 .El
 .Ss list
 List services with their state (running, idle, failed, not loaded,
-disabled), PID, domain, label, when they run, and plist path.
+disabled), PID, when the process started (the time if today, else the date)
+and its uptime, when they run, and label.
 By default: services with a plist on disk that are not Apple's, in any state.
 Alias:
 .Cm ls .
@@ -235,6 +242,7 @@ Alias:
 .Op Fl \-failed
 .Op Fl \-not-loaded
 .Op Fl \-disabled
+.Op Fl l | Fl \-long
 .Op Fl 1 | Fl \-labels
 .Op Fl s | Fl \-sort Ar field
 .Op Ar pattern
@@ -245,6 +253,8 @@ Include Apple services.
 Include services without a plist on disk.
 .It Fl \-running , Fl \-idle , Fl \-failed , Fl \-not-loaded , Fl \-disabled
 Only services in these states; can be combined.
+.It Fl l , Fl \-long
+Also show the domain and plist path columns.
 .It Fl 1 , Fl \-labels
 Print labels only, one per line.
 .It Fl s , Fl \-sort Ar field

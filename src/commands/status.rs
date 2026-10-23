@@ -6,13 +6,15 @@ use crate::launchctl::LaunchctlOutput;
 use crate::lctl::Lctl;
 use crate::output::stdout;
 use crate::parser::{self, ParsedService, ServiceItem};
+use crate::process;
 use crate::styles;
 use crate::types::{Daemon, Plist, ServiceState};
 use crossterm::style::{Color, Stylize};
+use std::time::SystemTime;
 
 pub(crate) fn run(lctl: &Lctl, args: &StatusArgs) -> Result<()> {
     let Some(name) = &args.target.name else {
-        return super::list::run(lctl, &ListArgs::default());
+        return super::list::run(lctl, &ListArgs { long: args.long, ..Default::default() });
     };
     let daemon = super::resolve_daemon(lctl, name, args.target.exact)?;
 
@@ -49,6 +51,11 @@ fn print_summary(daemon: &Daemon, print: Option<&ParsedService>, checks: &[Check
     );
     if let Some(pid) = daemon.pid {
         row("PID", &pid.to_string());
+        if let Some(start) = process::start_time(pid) {
+            let up = describe::uptime(start, SystemTime::now(), 2);
+            let at = process::local_time(start, c"%Y-%m-%d %H:%M:%S");
+            row("Started", &format!("{at} (up {up})"));
+        }
     }
     if let Some(command) = command_line(daemon, print) {
         row("Runs", &command);

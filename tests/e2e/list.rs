@@ -1,4 +1,5 @@
 use crate::harness::{self, TempServiceBuilder};
+use predicates::prelude::*;
 
 #[test]
 fn list_includes_running_service() {
@@ -11,7 +12,17 @@ fn list_includes_running_service() {
         .args(["list", "-e", &svc.label])
         .assert()
         .success()
-        .stdout(predicates::str::contains(&svc.label));
+        .stdout(predicates::str::contains(&svc.label))
+        .stdout(predicates::str::contains("Started"))
+        .stdout(predicates::str::is_match(r"\d{2}:\d{2} +\d+[smhd] ").unwrap())
+        .stdout(predicates::str::contains("Domain").not());
+
+    harness::lctl()
+        .args(["list", "-l", "-e", &svc.label])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains(format!("gui/{}", harness::uid())))
+        .stdout(predicates::str::contains(format!("{}.plist", svc.label)));
 }
 
 #[test]
@@ -37,7 +48,7 @@ fn system_list_includes_running_service() {
     harness::assert_running_sudo(&svc.target);
 
     harness::lctl_sudo()
-        .args(["list", "-e", &svc.label])
+        .args(["list", "-l", "-e", &svc.label])
         .assert()
         .success()
         .stdout(predicates::str::contains(&svc.label))

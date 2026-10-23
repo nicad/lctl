@@ -93,6 +93,9 @@ pub struct ListArgs {
     /// Only disabled services
     #[arg(long)]
     pub disabled: bool,
+    /// Also show the Domain and Plist columns
+    #[arg(short, long)]
+    pub long: bool,
     /// Print labels only, one per line
     #[arg(short = '1', long = "labels")]
     pub labels_only: bool,
@@ -120,6 +123,9 @@ pub struct StatusArgs {
     /// Also show all launchd fields and the raw launchctl print output
     #[arg(short = 'd', long)]
     pub debug: bool,
+    /// Without a name: also show the Domain and Plist columns
+    #[arg(short, long)]
+    pub long: bool,
 }
 
 #[derive(Args)]

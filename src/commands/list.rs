@@ -4,8 +4,11 @@ use crate::error::Result;
 use crate::lctl::Lctl;
 use crate::output;
 use crate::output::stdout;
+use crate::process;
 use crate::styles;
 use crate::types::{Daemon, ForWhom, ServiceState};
+use comfy_table::Cell;
+use std::time::SystemTime;
 
 pub(crate) fn run(lctl: &Lctl, args: &ListArgs) -> Result<()> {
     let query = args.pattern.as_deref().unwrap_or("");
@@ -24,17 +27,28 @@ pub(crate) fn run(lctl: &Lctl, args: &ListArgs) -> Result<()> {
         return Ok(());
     }
 
+    let now = SystemTime::now();
     let mut table = styles::create_table();
-    table.set_header(vec!["State", "PID", "Domain", "Label", "Runs when", "Plist"]);
+    let mut header = vec!["State", "PID", "Started", "Up", "Runs when", "Label"];
+    if args.long {
+        header.extend(["Domain", "Plist"]);
+    }
+    table.set_header(header);
     for daemon in &daemons {
-        table.add_row(vec![
+        let start = daemon.pid.and_then(process::start_time);
+        let mut row: Vec<Cell> = vec![
             styles::state_cell(&daemon.state()),
             daemon.pid.map_or("-".to_string(), |pid| pid.to_string()).into(),
-            daemon.domain.to_string().into(),
-            daemon.name.clone().into(),
+            start.map(|start| describe::started(start, now)).unwrap_or_default().into(),
+            start.map(|start| describe::uptime(start, now, 1)).unwrap_or_default().into(),
             daemon.plist.as_ref().map_or("-".to_string(), describe::runs_when).into(),
-            styles::display_path(daemon, output::is_verbose()).into(),
-        ]);
+            daemon.name.clone().into(),
+        ];
+        if args.long {
+            row.push(daemon.domain.to_string().into());
+            row.push(styles::display_path(daemon, output::is_verbose()).into());
+        }
+        table.add_row(row);
     }
     stdout::writeln(&table);
     stdout::writeln(&summary(&daemons));

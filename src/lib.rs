@@ -10,6 +10,7 @@ pub mod launchctl;
 pub mod lctl;
 pub mod output;
 pub mod parser;
+pub mod process;
 pub mod styles;
 pub mod sudo;
 pub mod types;

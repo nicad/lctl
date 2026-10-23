@@ -15,6 +15,7 @@ fn status_shows_running_state() {
         .stdout(predicates::str::contains(&svc.label))
         .stdout(predicates::str::contains("running"))
         .stdout(predicates::str::contains("/bin/sleep 999999"))
+        .stdout(predicates::str::contains("(up "))
         .stdout(predicates::str::contains("lctl stop"));
 }
 

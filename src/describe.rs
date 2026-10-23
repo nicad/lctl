@@ -1,5 +1,7 @@
+use crate::process;
 use crate::types::{KeepAlive, Plist};
 use plist::{Dictionary, Value};
+use std::time::SystemTime;
 
 /// When launchd starts the service, from the plist's launch triggers.
 pub fn runs_when(plist: &Plist) -> String {
@@ -39,12 +41,11 @@ pub fn triggers(plist: &Plist) -> Vec<String> {
     triggers
 }
 
+/// In the largest unit that divides it exactly: `5m`, `90s`.
 fn format_interval(seconds: i32) -> String {
-    match seconds {
-        s if s > 0 && s % 86400 == 0 => format!("{}d", s / 86400),
-        s if s > 0 && s % 3600 == 0 => format!("{}h", s / 3600),
-        s if s > 0 && s % 60 == 0 => format!("{}m", s / 60),
-        s => format!("{s}s"),
+    match UNITS.iter().find(|(size, _)| seconds > 0 && (seconds as u64).is_multiple_of(*size)) {
+        Some((size, unit)) => format!("{}{unit}", seconds as u64 / size),
+        None => format!("{seconds}s"),
     }
 }
 
@@ -82,6 +83,27 @@ fn format_calendar_entry(entry: &Dictionary) -> String {
     if days.is_empty() { time } else { format!("{} {time}", days.join(" ")) }
 }
 
+/// Time since `start` in up to `parts` units, largest first: `4h`, or `4h 12m` with two parts.
+pub fn uptime(start: SystemTime, now: SystemTime, parts: usize) -> String {
+    let total = now.duration_since(start).unwrap_or_default().as_secs();
+    let mut rest = total;
+    let mut words = Vec::new();
+    for (size, unit) in UNITS.iter().skip_while(|(size, _)| total < *size).take(parts) {
+        if rest / size > 0 {
+            words.push(format!("{}{unit}", rest / size));
+        }
+        rest %= size;
+    }
+    if words.is_empty() { "0s".to_string() } else { words.join(" ") }
+}
+
+/// When a process started: the time if today, else the date.
+pub fn started(start: SystemTime, now: SystemTime) -> String {
+    let day = |time| process::local_time(time, c"%Y-%m-%d");
+    process::local_time(start, if day(start) == day(now) { c"%H:%M" } else { c"%b %d" })
+}
+
+const UNITS: [(u64, &str); 4] = [(86400, "d"), (3600, "h"), (60, "m"), (1, "s")];
 const MONTHS: [&str; 13] =
     ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 // launchd accepts 0 and 7 for Sunday

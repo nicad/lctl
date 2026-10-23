@@ -1,7 +1,8 @@
-use lctl::describe::runs_when;
+use lctl::describe::{runs_when, started, uptime};
 use lctl::launchctl::LaunchctlOutput;
 use lctl::types::{Daemon, Domain, ForWhom, KeepAlive, Plist};
 use plist::{Dictionary, Value};
+use std::time::{Duration, SystemTime};
 
 fn calendar(fields: &[(&str, i64)]) -> Value {
     let mut entry = Dictionary::new();
@@ -54,6 +55,30 @@ fn runs_when_reports_on_demand_services() {
     let plist =
         Plist { mach_services: Some(Value::Dictionary(Dictionary::new())), ..Default::default() };
     assert_eq!(when(plist), "on demand");
+}
+
+#[test]
+fn uptime_shows_the_largest_units() {
+    let now = SystemTime::now();
+    let up = |seconds, parts| uptime(now - Duration::from_secs(seconds), now, parts);
+    assert_eq!(up(0, 1), "0s");
+    assert_eq!(up(45, 2), "45s");
+    assert_eq!(up(12 * 60 + 5, 1), "12m");
+    assert_eq!(up(12 * 60 + 5, 2), "12m 5s");
+    assert_eq!(up(4 * 3600 + 59 * 60, 1), "4h");
+    assert_eq!(up(2 * 86400 + 7 * 3600 + 30, 2), "2d 7h");
+    // a zero unit is left out rather than replaced by the next one
+    assert_eq!(up(3 * 86400 + 20 * 60, 2), "3d");
+    assert_eq!(uptime(now + Duration::from_secs(5), now, 1), "0s", "start after now");
+}
+
+#[test]
+fn started_shows_time_today_and_date_before() {
+    let now = SystemTime::now();
+    let today = started(now, now);
+    assert!(today.len() == 5 && today.as_bytes()[2] == b':', "{today}");
+    let earlier = started(now - Duration::from_secs(40 * 86400), now);
+    assert!(earlier.len() == 6 && !earlier.contains(':'), "{earlier}");
 }
 
 fn daemon(loaded: bool, disabled: bool) -> Daemon {

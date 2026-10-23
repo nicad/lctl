@@ -437,6 +437,7 @@ dependencies = [
  "dialoguer",
  "dirs",
  "error_set",
+ "libc",
  "nix",
  "nom",
  "plist",
