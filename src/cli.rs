@@ -123,6 +123,15 @@ pub struct StatusArgs {
 }
 
 #[derive(Args)]
+pub struct KillArgs {
+    #[command(flatten)]
+    pub target: NameArgs,
+    /// Signal name (TERM, HUP, KILL…, with or without SIG) or number
+    #[arg(short, long, default_value = "TERM")]
+    pub signal: String,
+}
+
+#[derive(Args)]
 pub struct LogsArgs {
     #[command(flatten)]
     pub target: NameArgs,
@@ -145,6 +154,8 @@ pub enum Commands {
     Restart(NameArgs),
     /// Unload and load again, picking up plist edits and symlink target changes
     Reload(NameArgs),
+    /// Send a signal to a service's process (default TERM); it stays loaded
+    Kill(KillArgs),
     /// Show a service's state, config and next steps (no name: overview)
     Status(StatusArgs),
     /// Show service logs

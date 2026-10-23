@@ -44,6 +44,7 @@ fn dispatch(lctl: &Lctl, command: Commands) -> Result<()> {
         Commands::Stop(args) => commands::stop::run(lctl, &args),
         Commands::Restart(args) => commands::restart::run(lctl, &args),
         Commands::Reload(args) => commands::reload::run(lctl, &args),
+        Commands::Kill(args) => commands::kill::run(lctl, &args),
         Commands::Status(args) => commands::status::run(lctl, &args),
         Commands::Logs(args) => commands::logs::run(lctl, &args),
         Commands::List(args) => commands::list::run(lctl, &args),

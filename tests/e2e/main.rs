@@ -8,6 +8,7 @@ mod doctor;
 mod enable;
 mod explain;
 mod install;
+mod kill;
 mod list;
 mod logs;
 mod plist;

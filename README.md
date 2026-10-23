@@ -50,6 +50,7 @@ lctl uninstall my.service
 
 lctl restart my.service
 lctl reload my.service      # pick up plist edits
+lctl kill -s HUP my.service # send a signal (default TERM); it stays loaded
 lctl disable my.service     # stop it and keep it off across reboots
 lctl enable my.service      # undo disable, and load it
 lctl plist my.service       # print the plist file
@@ -63,6 +64,7 @@ Common flags:
 - `install --domain gui|user|system` — skip interactive domain selection
 - `install -s symlink|copy|move` — how to place the plist (default: symlink)
 - `logs -t 5m` — log time frame (e.g. `1h`, `24h`)
+- `kill -s HUP` — signal name (`TERM`, `HUP`, `KILL`…, with or without `SIG`) or number; default `TERM`
 - `list --running` / `--idle` / `--failed` / `--not-loaded` / `--disabled` — only services in those states (combinable)
 - `list -a` / `-d` — also show Apple services / services without a plist on disk
 - `list -1` — labels only, one per line (for scripts)
@@ -103,6 +105,7 @@ Steps run in order. lctl stops at the first step that fails and prints launchctl
 | `stop <name>` | if loaded: `launchctl bootout <target>` | If it isn't loaded, nothing runs. Because the service is unloaded, `KeepAlive` can't restart it. It comes back at the next login/boot if the plist is in a standard Launch* directory; `disable` prevents that. |
 | `restart <name>` | if loaded: `launchctl kickstart -k <target>`<br>if not loaded: 1. `launchctl bootstrap <domain> <plist>` 2. `launchctl kickstart <target>` | `-k` kills the running process first, if there is one. When not loaded it behaves like `start`, including the disabled check. |
 | `reload <name>` | 1. if loaded: `launchctl bootout <target>`<br>2. `launchctl bootstrap <domain> <plist>` | Picks up plist edits and symlink target changes. Fails before unloading if the service has no plist on disk or is disabled. |
+| `kill <name>` | `launchctl kill <signal> <target>` | `<signal>` comes from `-s` (default `TERM`): a name such as `TERM`, `HUP`, `INT` or `KILL`, with or without `SIG`, in any case, or a number. The service stays loaded, so launchd starts it again if its `KeepAlive` asks for that; `stop` unloads it instead. If it isn't running, lctl stops before calling launchctl. |
 | `enable <name>` | 1. `launchctl enable <target>`<br>2. if not loaded: `launchctl bootstrap <domain> <plist>` | The flag change persists across reboots. Loading runs the process only if the plist asks for it; `start` runs it now. |
 | `disable <name>` | 1. `launchctl disable <target>`<br>2. if loaded: `launchctl bootout <target>` | Persists across reboots until `enable`. Disabling before the bootout keeps `KeepAlive` from restarting it. The plist stays on disk. |
 | `status <name>` | if loaded: `launchctl print <target>` | Shows the state, domain, enabled/disabled, PID, the command (from the plist, or from launchd when there is no plist), "runs when", log files, plist path, problems from the [doctor checks](#doctor-checks) and the next commands to run. "Next" lists the fixes for any problems; without problems, the usual commands for its state (running: `logs`, `restart`, `stop`; idle: `start`). `-d` adds every launchd field and the raw `launchctl print` output. |
@@ -166,7 +169,7 @@ Used by `lctl doctor`, `lctl status` and after `lctl install`. ✗ is a failure 
 | `launchctl unload -w <plist>` | `launchctl disable <target>` + `launchctl bootout <target>` | `lctl disable <name>` |
 | `launchctl remove <label>` | `launchctl bootout <target>` | `lctl stop <name>` |
 | `launchctl start <label>` | `launchctl kickstart <target>` | `lctl start <name>` |
-| `launchctl stop <label>` | `launchctl kill SIGTERM <target>` | `lctl stop <name>` (unloads instead, so `KeepAlive` can't restart it) |
+| `launchctl stop <label>` | `launchctl kill SIGTERM <target>` | `lctl kill <name>` (same signal; the service stays loaded, so `KeepAlive` can restart it) or `lctl stop <name>` (unloads, so it can't) |
 | `launchctl list` | `launchctl print <domain>` | `lctl` or `lctl list` |
 | `launchctl list <label>` | `launchctl print <target>` | `lctl status <name>` |
 | `launchctl bootstrap <domain> <plist>` | — | `lctl enable <name>`, or `lctl start <name>` to also run it |
@@ -176,7 +179,7 @@ Used by `lctl doctor`, `lctl status` and after `lctl install`. ✗ is a failure 
 | `launchctl enable <target>` | — | `lctl enable <name>` (also loads) |
 | `launchctl disable <target>` | — | `lctl disable <name>` (also unloads) |
 | `launchctl print <target>` | — | `lctl status -d <name>` |
-| `launchctl kill <sig> <target>` | — | not wrapped; use launchctl |
+| `launchctl kill <sig> <target>` | — | `lctl kill -s <sig> <name>` |
 | `launchctl print-disabled <domain>` | — | `lctl list --disabled` (`-a -d` to include Apple's and services without a plist; launchctl also lists flags left for labels that no longer exist) |
 | `launchctl blame <target>` | — | not wrapped; use launchctl |
 | `launchctl submit`, `setenv`, `getenv`, `asuser`, `bsexec`, `limit`, `config`, `attach`, `debug`, `procinfo`, `dumpstate`, … | — | not wrapped; use launchctl |
@@ -186,7 +189,7 @@ The legacy subcommands (`load`, `unload`, `start`, `stop`, `list`, `remove`) inf
 ### What lctl does around those commands
 
 - **Discovery.** Every command except `completion` first runs `launchctl print system`, `launchctl print user/<uid>` and `launchctl print gui/<uid>`, and reads the plist directories listed under [Configuration](#configuration). A service listed by one of those `print` calls is loaded; one with PID `-` or `0` is not running. The same output's `disabled services` block gives each label's disabled flag. The state shown everywhere is: running (has a PID), failed (loaded, last exit code non-zero), idle (loaded otherwise), disabled (not loaded, flag set), not loaded.
-- **Error hints.** When a launchctl call fails, lctl adds a `hint:` line based on launchd's message: `Could not find service` (113) → `lctl start`; `Input/output error` (5, launchd's catch-all for a refused load) → `lctl reload` if it is already loaded, otherwise `lctl doctor` (for the `user` domain, also a note that agents for your login session belong in `gui`; a disabled service is caught before launchctl runs); `Operation already in progress` (37) → `lctl reload`; `Service is disabled` (119) → `lctl enable`; `Path had bad ownership/permissions` (122) → `lctl doctor`; SIP (150) → can't be changed; `Operation not permitted` (1) or the "re-run as root" message with no more specific error → needs root.
+- **Error hints.** When a launchctl call fails, lctl adds a `hint:` line based on launchd's message: `Could not find service` (113) → `lctl start`; `Input/output error` (5, launchd's catch-all for a refused load) → `lctl reload` if it is already loaded, otherwise `lctl doctor` (for the `user` domain, also a note that agents for your login session belong in `gui`; a disabled service is caught before launchctl runs); `Operation already in progress` (37) → `lctl reload`; `Service is disabled` (119) → `lctl enable`; `Path had bad ownership/permissions` (122) → `lctl doctor`; `Invalid signal` (64) → signal names to use; SIP (150) → can't be changed; `Operation not permitted` (1) or the "re-run as root" message with no more specific error → needs root.
 - **Name resolution.** `<name>` is a case-insensitive substring of the label (`-e` for an exact match). If several services match, lctl shows a picker (`-y` picks the first alphabetically).
 - **Domain resolution.** A service's domain is, in order of precedence: the domain where launchd currently has it loaded; the plist's `LimitLoadToSessionType` (`Aqua` → `gui`, `Background`/`LoginWindow` → `user`, `System` → `system`); the domain of the directory the plist was found in.
 - **sudo.** lctl runs launchctl as you first. It retries as root only if launchctl's output contains `Try re-running the command as root`, or `Operation not permitted` without `System Integrity Protection` (sudo can't override SIP). With stdin on a terminal, lctl runs `/usr/bin/sudo -v`, which prompts the way sudo is configured (password, or Touch ID via `pam_tid`). It then reruns the command as `/usr/bin/sudo -n /bin/launchctl …`. Without a terminal there is no prompt and launchctl's error is reported as is. `install --domain system` and a cancelled prompt fail with "Sudo is required". lctl never reads or stores your password. launchctl prints the "re-running as root" hint on many failed `bootstrap` calls (for example, a disabled service), so such a failure can bring up a sudo prompt and then fail again with a more detailed error.

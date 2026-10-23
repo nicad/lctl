@@ -79,6 +79,12 @@ impl LaunchctlOutput {
         if has("No such process") {
             return Some(format!("not loaded in {}", daemon.domain));
         }
+        if has("Invalid signal") {
+            return Some(
+                "use a signal name like TERM, HUP or KILL, or a number (`kill -l` lists them)"
+                    .to_string(),
+            );
+        }
         if has("Operation already in progress") {
             return Some(format!("already loaded; `lctl reload {name}` reloads it"));
         }
@@ -129,6 +135,10 @@ pub fn kickstart(daemon: &Daemon) -> Result<LaunchctlOutput> {
 
 pub fn kickstart_kill(daemon: &Daemon) -> Result<LaunchctlOutput> {
     launchctl_exec(&["kickstart", "-k", &daemon.service_target()])
+}
+
+pub fn kill(daemon: &Daemon, signal: &str) -> Result<LaunchctlOutput> {
+    launchctl_exec(&["kill", signal, &daemon.service_target()])
 }
 
 pub fn print(target: &str) -> Result<LaunchctlOutput> {

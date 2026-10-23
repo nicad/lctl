@@ -3,6 +3,7 @@ pub(crate) mod doctor;
 pub(crate) mod enable;
 pub(crate) mod explain;
 pub(crate) mod install;
+pub(crate) mod kill;
 pub(crate) mod list;
 pub(crate) mod logs;
 pub(crate) mod reload;
@@ -18,7 +19,7 @@ use crate::error::{Error, Result};
 use crate::launchctl::{self, LaunchctlOutput};
 use crate::lctl::Lctl;
 use crate::output::stdout;
-use crate::types::Daemon;
+use crate::types::{Daemon, ServiceState};
 use crate::utils;
 
 /// Resolve a daemon by name (prompts when multiple fuzzy matches).
@@ -67,6 +68,14 @@ pub(crate) fn step(
 /// (its error also triggers a needless sudo retry).
 pub(crate) fn require_enabled(daemon: &Daemon) -> Result<()> {
     if daemon.disabled { Err(Error::Disabled { name: daemon.name.clone() }) } else { Ok(()) }
+}
+
+/// A signal goes to the service's process, so there has to be one.
+pub(crate) fn require_running(daemon: &Daemon) -> Result<()> {
+    match daemon.state() {
+        ServiceState::Running => Ok(()),
+        state => Err(Error::NotRunning { name: daemon.name.clone(), state: state.name() }),
+    }
 }
 
 /// Bootstrap unless launchd already has the service loaded.

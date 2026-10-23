@@ -31,6 +31,12 @@ error_set! {
             name: String,
         },
 
+        #[display("{name} is not running ({state})")]
+        NotRunning {
+            name: String,
+            state: &'static str,
+        },
+
         #[display("{failed} doctor check(s) failed")]
         ChecksFailed {
             failed: usize,

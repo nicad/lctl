@@ -102,6 +102,15 @@ fn failure_hint_for_sip_says_it_cannot_be_changed() {
 }
 
 #[test]
+fn failure_hint_for_invalid_signal_names_signals() {
+    let output = failed(
+        "Invalid signal.\nUsage: launchctl kill <signal-number|signal-name> <service-target>\n",
+    );
+    let hint = output.failure_hint(&daemon(true, false)).unwrap();
+    assert!(hint.contains("kill -l"), "{hint}");
+}
+
+#[test]
 fn failure_hint_is_none_for_unknown_errors() {
     assert!(failed("something else\n").failure_hint(&daemon(true, false)).is_none());
 }

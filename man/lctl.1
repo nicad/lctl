@@ -140,6 +140,36 @@ Picks up plist edits and symlink target changes.
 .Cm reload
 .Op Fl e | Fl \-exact
 .Ar name
+.Ss kill
+Send a signal to the service's process
+.Pq Cm launchctl kill .
+The service stays loaded, so launchd starts it again if its
+.Cm KeepAlive
+asks for that;
+.Cm stop
+unloads it instead.
+Fails without calling
+.Xr launchctl 1
+if the service is not running.
+.Pp
+.Nm
+.Cm kill
+.Op Fl e | Fl \-exact
+.Op Fl s | Fl \-signal Ar signal
+.Ar name
+.Bl -tag -width Ds
+.It Fl s , Fl \-signal Ar signal
+Signal name, such as
+.Ar TERM ,
+.Ar HUP ,
+or
+.Ar KILL ,
+with or without
+.Ql SIG ,
+or number.
+Default:
+.Ar TERM .
+.El
 .Ss status
 Show one service on one screen: state, domain, enabled or disabled, PID,
 the command it runs, when it runs, log files, plist path, problems found by
