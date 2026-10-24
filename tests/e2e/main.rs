@@ -3,6 +3,7 @@
 mod fixtures;
 mod harness;
 
+mod all_matches;
 mod disable;
 mod doctor;
 mod enable;

@@ -11,14 +11,7 @@ use comfy_table::Cell;
 use std::time::SystemTime;
 
 pub(crate) fn run(lctl: &Lctl, args: &ListArgs) -> Result<()> {
-    let query = args.pattern.as_deref().unwrap_or("");
-    let mut daemons: Vec<&Daemon> = lctl
-        .daemons
-        .get_matches(query, args.exact)
-        .into_iter()
-        .filter(|daemon| is_listed(daemon, args))
-        .collect();
-    sort_daemons(args.sort_by, &mut daemons);
+    let daemons = listed(lctl, args);
 
     if args.labels_only {
         for daemon in &daemons {
@@ -55,16 +48,16 @@ pub(crate) fn run(lctl: &Lctl, args: &ListArgs) -> Result<()> {
     Ok(())
 }
 
-/// What `list` shows by default (with a plist on disk, not Apple's), sorted by label.
-pub(crate) fn your_services(lctl: &Lctl) -> Vec<&Daemon> {
-    let defaults = ListArgs::default();
+/// The services `list` shows for `args`, sorted. By default: with a plist on disk, not Apple's.
+pub(crate) fn listed<'a>(lctl: &'a Lctl, args: &ListArgs) -> Vec<&'a Daemon> {
+    let query = args.pattern.as_deref().unwrap_or("");
     let mut daemons: Vec<&Daemon> = lctl
         .daemons
-        .get_matches("", false)
+        .get_matches(query, args.exact)
         .into_iter()
-        .filter(|daemon| is_listed(daemon, &defaults))
+        .filter(|daemon| is_listed(daemon, args))
         .collect();
-    sort_daemons(SortBy::Name, &mut daemons);
+    sort_daemons(args.sort_by, &mut daemons);
     daemons
 }
 

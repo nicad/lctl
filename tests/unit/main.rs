@@ -1,3 +1,4 @@
+mod cli;
 mod describe;
 mod doctor;
 mod domain;

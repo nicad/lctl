@@ -1,4 +1,4 @@
-use crate::cli::OptionalNameArgs;
+use crate::cli::{ListArgs, OptionalNameArgs};
 use crate::doctor::{self, Check, Severity};
 use crate::error::{Error, Result};
 use crate::lctl::Lctl;
@@ -10,9 +10,11 @@ use crossterm::style::Color;
 
 pub(crate) fn run(lctl: &Lctl, args: &OptionalNameArgs) -> Result<()> {
     let daemons = match &args.name {
-        Some(name) => vec![super::resolve_daemon(lctl, name, args.exact)?],
-        None => super::list::your_services(lctl),
+        Some(name) => super::resolve_daemons(lctl, name, args.exact, args.all)?,
+        None => super::list::listed(lctl, &ListArgs::default()),
     };
+    // several services: report only those with problems, then a count
+    let sweep = args.name.is_none() || args.all;
     let verbose = output::is_verbose();
 
     let (mut failed_checks, mut failing, mut warning) = (0, 0, 0);
@@ -26,7 +28,7 @@ pub(crate) fn run(lctl: &Lctl, args: &OptionalNameArgs) -> Result<()> {
             Severity::Warn => warning += 1,
             Severity::Ok => {}
         }
-        if worst == Severity::Ok && !verbose && args.name.is_none() {
+        if worst == Severity::Ok && !verbose && sweep {
             continue;
         }
 
@@ -43,7 +45,7 @@ pub(crate) fn run(lctl: &Lctl, args: &OptionalNameArgs) -> Result<()> {
         }
     }
 
-    if args.name.is_none() {
+    if sweep {
         stdout::writeln(&styles::command(&format!(
             "{} services checked: {failing} failing, {warning} with warnings{}",
             daemons.len(),

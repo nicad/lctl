@@ -5,8 +5,13 @@ use crossterm::style::Color;
 use nix::unistd;
 use std::io::IsTerminal;
 use std::process::{Command, Output, Stdio};
+use std::sync::atomic::{AtomicBool, Ordering};
 
 const SUDO: &str = "/usr/bin/sudo";
+
+/// Set when `sudo -v` fails (e.g. the prompt was declined), so later launchctl calls in the same
+/// run, such as the other services of `-A`, don't ask again.
+static DECLINED: AtomicBool = AtomicBool::new(false);
 
 /// Whether stdin is an interactive terminal (safe to prompt for a password).
 pub fn stdin_is_tty() -> bool {
@@ -24,7 +29,7 @@ pub fn ensure_elevated() -> Result<()> {
     if is_root() {
         return Ok(());
     }
-    if !stdin_is_tty() {
+    if !stdin_is_tty() || DECLINED.load(Ordering::Relaxed) {
         return Err(Error::NeedsRoot);
     }
 
@@ -40,7 +45,12 @@ pub fn ensure_elevated() -> Result<()> {
         .status()
         .map_err(|e| Error::unexpected(format!("failed to run sudo -v: {e}")))?;
 
-    if status.success() { Ok(()) } else { Err(Error::NeedsRoot) }
+    if status.success() {
+        Ok(())
+    } else {
+        DECLINED.store(true, Ordering::Relaxed);
+        Err(Error::NeedsRoot)
+    }
 }
 
 /// `sudo -n <program> …` for non-interactive use after [`ensure_elevated`].

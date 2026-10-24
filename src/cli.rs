@@ -34,6 +34,19 @@ pub struct NameArgs {
     pub exact: bool,
 }
 
+/// A service name that may select several services with `-A`.
+#[derive(Args)]
+pub struct MultiNameArgs {
+    /// Service name
+    pub name: String,
+    /// Exact match
+    #[arg(short, long)]
+    pub exact: bool,
+    /// Every service that matches (what `lctl list NAME` shows) instead of picking one
+    #[arg(short = 'A', long)]
+    pub all: bool,
+}
+
 #[derive(Args)]
 pub struct OptionalNameArgs {
     /// Service name (omit for all of your services)
@@ -41,6 +54,9 @@ pub struct OptionalNameArgs {
     /// Exact match
     #[arg(short, long)]
     pub exact: bool,
+    /// Every service that matches (what `lctl list NAME` shows) instead of picking one
+    #[arg(short = 'A', long, requires = "name")]
+    pub all: bool,
 }
 
 #[derive(Clone, Copy, Default, ValueEnum)]
@@ -131,7 +147,7 @@ pub struct StatusArgs {
 #[derive(Args)]
 pub struct KillArgs {
     #[command(flatten)]
-    pub target: NameArgs,
+    pub target: MultiNameArgs,
     /// Signal name (TERM, HUP, KILL…, with or without SIG) or number
     #[arg(short, long, default_value = "TERM")]
     pub signal: String,
@@ -153,13 +169,13 @@ pub enum Commands {
     /// Uninstall a service
     Uninstall(NameArgs),
     /// Start a service (loads it first if needed)
-    Start(NameArgs),
+    Start(MultiNameArgs),
     /// Stop and unload a service (it stays stopped until next login/boot)
-    Stop(NameArgs),
+    Stop(MultiNameArgs),
     /// Restart a service (loads it first if needed)
-    Restart(NameArgs),
+    Restart(MultiNameArgs),
     /// Unload and load again, picking up plist edits and symlink target changes
-    Reload(NameArgs),
+    Reload(MultiNameArgs),
     /// Send a signal to a service's process (default TERM); it stays loaded
     Kill(KillArgs),
     /// Show a service's state, config and next steps (no name: overview)
@@ -172,9 +188,9 @@ pub enum Commands {
     /// Print a service's plist
     Plist(NameArgs),
     /// Enable a service and load it (persists across reboots)
-    Enable(NameArgs),
+    Enable(MultiNameArgs),
     /// Disable a service and unload it (persists across reboots)
-    Disable(NameArgs),
+    Disable(MultiNameArgs),
     /// Check plists and services for common problems (no name: all of yours)
     Doctor(OptionalNameArgs),
     /// Show the launchctl commands behind lctl commands, and the reverse

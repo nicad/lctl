@@ -109,6 +109,7 @@ if launchd does not have it loaded.
 .Nm
 .Cm start
 .Op Fl e | Fl \-exact
+.Op Fl A | Fl \-all
 .Ar name
 .Ss stop
 Stop and unload a service
@@ -121,6 +122,7 @@ until the next login or boot.
 .Nm
 .Cm stop
 .Op Fl e | Fl \-exact
+.Op Fl A | Fl \-all
 .Ar name
 .Ss restart
 Restart a service
@@ -131,6 +133,7 @@ If it is not loaded, behave like
 .Nm
 .Cm restart
 .Op Fl e | Fl \-exact
+.Op Fl A | Fl \-all
 .Ar name
 .Ss reload
 Unload and load the service again.
@@ -139,6 +142,7 @@ Picks up plist edits and symlink target changes.
 .Nm
 .Cm reload
 .Op Fl e | Fl \-exact
+.Op Fl A | Fl \-all
 .Ar name
 .Ss kill
 Send a signal to the service's process
@@ -155,6 +159,7 @@ if the service is not running.
 .Nm
 .Cm kill
 .Op Fl e | Fl \-exact
+.Op Fl A | Fl \-all
 .Op Fl s | Fl \-signal Ar signal
 .Ar name
 .Bl -tag -width Ds
@@ -187,6 +192,7 @@ same as
 .Nm
 .Cm status
 .Op Fl e | Fl \-exact
+.Op Fl A | Fl \-all
 .Op Fl d | Fl \-debug
 .Op Fl l | Fl \-long
 .Op Ar name
@@ -279,6 +285,7 @@ Persists across reboots.
 .Nm
 .Cm enable
 .Op Fl e | Fl \-exact
+.Op Fl A | Fl \-all
 .Ar name
 .Ss disable
 Set the disabled override and unload the service.
@@ -288,6 +295,7 @@ Persists across reboots until
 .Nm
 .Cm disable
 .Op Fl e | Fl \-exact
+.Op Fl A | Fl \-all
 .Ar name
 .Ss doctor
 Check plists and services for problems: missing Label, wrong owner or
@@ -309,6 +317,7 @@ Exits non-zero if a check fails.
 .Nm
 .Cm doctor
 .Op Fl e | Fl \-exact
+.Op Fl A | Fl \-all
 .Op Ar name
 .Ss explain
 Print what
@@ -350,6 +359,31 @@ accept:
 .Bl -tag -width Ds
 .It Fl e , Fl \-exact
 Require an exact name match instead of fuzzy matching.
+.It Fl A , Fl \-all
+Act on every service that matches
+.Ar name ,
+the ones
+.Nm
+.Cm list Ar name
+shows, instead of picking one.
+Accepted by
+.Cm status ,
+.Cm doctor ,
+.Cm start ,
+.Cm stop ,
+.Cm restart ,
+.Cm reload ,
+.Cm kill ,
+.Cm enable
+and
+.Cm disable .
+Commands that change something list the services and ask once
+.Po
+.Fl y
+skips the question and is required without a terminal
+.Pc .
+A failure is reported and the other services still run; the command then
+exits non-zero.
 .El
 .Sh DOMAINS
 .Nm

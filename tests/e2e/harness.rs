@@ -24,10 +24,21 @@ pub fn unique_label(cmd: &str) -> String {
     format!("com.lctl.test.{cmd}.{}.{}", std::process::id(), n)
 }
 
+/// A name matching every label [`unique_label`] made for `cmd` in this test run, and no label
+/// left over from an earlier run.
+pub fn label_query(cmd: &str) -> String {
+    format!("{cmd}.{}.", std::process::id())
+}
+
 pub fn lctl() -> Command {
-    let mut cmd = Command::cargo_bin("lctl").expect("lctl binary");
+    let mut cmd = lctl_without_yes();
     cmd.arg("-y");
     cmd
+}
+
+/// lctl without `-y`: prompts need a terminal, which tests don't have.
+pub fn lctl_without_yes() -> Command {
+    Command::cargo_bin("lctl").expect("lctl binary")
 }
 
 pub fn lctl_sudo() -> Command {
@@ -167,8 +178,12 @@ pub fn pid_from_print(stdout: &str) -> Option<u32> {
     None
 }
 
+pub fn pid(target: &str) -> Option<u32> {
+    print_service(target).and_then(|s| pid_from_print(&s))
+}
+
 pub fn is_running(target: &str) -> bool {
-    print_service(target).and_then(|s| pid_from_print(&s)).is_some()
+    pid(target).is_some()
 }
 
 pub fn is_running_sudo(target: &str) -> bool {

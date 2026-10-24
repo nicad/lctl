@@ -37,6 +37,12 @@ error_set! {
             state: &'static str,
         },
 
+        #[display("{failed} of {total} services failed")]
+        ServicesFailed {
+            failed: usize,
+            total: usize,
+        },
+
         #[display("{failed} doctor check(s) failed")]
         ChecksFailed {
             failed: usize,

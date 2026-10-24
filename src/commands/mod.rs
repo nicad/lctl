@@ -14,8 +14,8 @@ pub(crate) mod status;
 pub(crate) mod stop;
 pub(crate) mod uninstall;
 
-use crate::cli::NameArgs;
-use crate::error::{Error, Result};
+use crate::cli::{ListArgs, MultiNameArgs};
+use crate::error::{Error, Result, err_msg};
 use crate::launchctl::{self, LaunchctlOutput};
 use crate::lctl::Lctl;
 use crate::output::stdout;
@@ -37,17 +37,65 @@ pub(crate) fn print_if_loaded(daemon: &Daemon) -> Result<Option<LaunchctlOutput>
     if daemon.loaded { launchctl::print(&daemon.service_target()).map(Some) } else { Ok(None) }
 }
 
-/// Resolve a named daemon, run `steps` on it, then report `done`.
+/// With `all`, every service `lctl list <query>` shows; otherwise one (a picker when several match).
+pub(crate) fn resolve_daemons<'a>(
+    lctl: &'a Lctl,
+    query: &str,
+    exact: bool,
+    all: bool,
+) -> Result<Vec<&'a Daemon>> {
+    if !all {
+        return Ok(vec![resolve_daemon(lctl, query, exact)?]);
+    }
+    let shown = ListArgs { pattern: Some(query.to_string()), exact, ..Default::default() };
+    let daemons = list::listed(lctl, &shown);
+    if daemons.is_empty() { Err(Error::NotFound(err_msg!(query))) } else { Ok(daemons) }
+}
+
+/// Run `act` on each daemon. A single daemon's error is returned as is; with several, each error
+/// is printed, the others still run, and the result counts the failures.
+pub(crate) fn for_each_daemon(
+    daemons: &[&Daemon],
+    act: impl Fn(&Daemon) -> Result<()>,
+) -> Result<()> {
+    if let [daemon] = daemons {
+        return act(daemon);
+    }
+    let mut failed = 0;
+    for daemon in daemons {
+        if let Err(e) = act(daemon) {
+            crate::print_error(&e);
+            failed += 1;
+        }
+    }
+    if failed == 0 { Ok(()) } else { Err(Error::ServicesFailed { failed, total: daemons.len() }) }
+}
+
+/// Resolve the named service(s), run `steps` on each, and report `done` for each.
+/// Several services are listed and confirmed once first.
 pub(crate) fn run_steps(
     lctl: &Lctl,
-    args: &NameArgs,
-    steps: impl FnOnce(&Daemon) -> Result<()>,
+    args: &MultiNameArgs,
+    steps: impl Fn(&Daemon) -> Result<()>,
     done: &str,
 ) -> Result<()> {
-    let daemon = resolve_daemon(lctl, &args.name, args.exact)?;
-    steps(daemon)?;
-    stdout::success(&format!("{done} {}", daemon.name));
-    Ok(())
+    let daemons = resolve_daemons(lctl, &args.name, args.exact, args.all)?;
+    if daemons.len() > 1 && !confirm_several(&daemons)? {
+        stdout::writeln("Cancelled.");
+        return Ok(());
+    }
+    for_each_daemon(&daemons, |daemon| {
+        steps(daemon)?;
+        stdout::success(&format!("{done} {}", daemon.name));
+        Ok(())
+    })
+}
+
+fn confirm_several(daemons: &[&Daemon]) -> Result<bool> {
+    for daemon in daemons {
+        stdout::writeln(&format!("  {} ({})", daemon.name, daemon.domain));
+    }
+    utils::confirm(&format!("Continue with these {} services?", daemons.len()))
 }
 
 /// Run one launchctl op, print its stdout, require success (with a hint when it fails).

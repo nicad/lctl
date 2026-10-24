@@ -2,6 +2,7 @@ use crate::error::{Error, Result, err_msg};
 use crate::styles;
 use crate::types::Daemon;
 use nix::unistd::{Uid, User};
+use std::io::IsTerminal;
 use std::path::PathBuf;
 use std::sync::OnceLock;
 
@@ -54,7 +55,18 @@ pub fn confirm_with_default(prompt: &str, default: bool) -> Result<bool> {
     if crate::output::assume_yes() {
         return Ok(true);
     }
+    require_terminal("add -y to answer yes")?;
     Ok(dialoguer::Confirm::new().with_prompt(prompt).default(default).interact()?)
+}
+
+/// dialoguer prompts on stderr; without a terminal there, say what to do instead of failing
+/// with its "not a terminal".
+fn require_terminal(instead: &str) -> Result<()> {
+    if std::io::stderr().is_terminal() {
+        Ok(())
+    } else {
+        Err(Error::InvalidInput(err_msg!("no terminal to ask on: {instead}")))
+    }
 }
 
 /// Pick one daemon from matches: empty → NotFound, one → that daemon, many → interactive select.
@@ -66,6 +78,10 @@ pub fn pick_daemon<'a>(mut matches: Vec<&'a Daemon>, query: &str) -> Result<&'a 
         1 => Ok(matches[0]),
         _ if crate::output::assume_yes() => Ok(matches[0]),
         _ => {
+            require_terminal(&format!(
+                "{} services match `{query}`; use -e with the full label, -A for all, or -y for the first",
+                matches.len()
+            ))?;
             let items: Vec<String> = matches
                 .iter()
                 .map(|daemon| {

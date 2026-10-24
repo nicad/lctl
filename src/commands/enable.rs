@@ -1,10 +1,10 @@
-use crate::cli::NameArgs;
+use crate::cli::MultiNameArgs;
 use crate::error::Result;
 use crate::launchctl;
 use crate::lctl::Lctl;
 use crate::types::Daemon;
 
-pub(crate) fn run(lctl: &Lctl, args: &NameArgs) -> Result<()> {
+pub(crate) fn run(lctl: &Lctl, args: &MultiNameArgs) -> Result<()> {
     super::run_steps(
         lctl,
         args,

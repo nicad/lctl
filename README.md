@@ -51,6 +51,10 @@ lctl uninstall my.service
 lctl restart my.service
 lctl reload my.service      # pick up plist edits
 lctl kill -s HUP my.service # send a signal (default TERM); it stays loaded
+
+lctl ls backup              # the services matching "backup"
+lctl restart -A backup      # restart all of them (lists them and asks first)
+lctl status -A backup       # status of each
 lctl disable my.service     # stop it and keep it off across reboots
 lctl enable my.service      # undo disable, and load it
 lctl plist my.service       # print the plist file
@@ -61,6 +65,7 @@ Common flags:
 - `-v` / `--verbose` — verbose output, including every command lctl executes
 - `-y` / `--yes` — assume yes for confirmation prompts (and pick the first match when several services match)
 - `-e` / `--exact` — exact (case-insensitive) service name match instead of substring
+- `-A` / `--all` — act on every service that matches the name (what `lctl list <name>` shows) instead of picking one: `status`, `doctor`, `start`, `stop`, `restart`, `reload`, `kill`, `enable`, `disable`
 - `install --domain gui|user|system` — skip interactive domain selection
 - `install -s symlink|copy|move` — how to place the plist (default: symlink)
 - `logs -t 5m` — log time frame (e.g. `1h`, `24h`)
@@ -192,9 +197,10 @@ The legacy subcommands (`load`, `unload`, `start`, `stop`, `list`, `remove`) inf
 - **Discovery.** Every command except `completion` first runs `launchctl print system`, `launchctl print user/<uid>` and `launchctl print gui/<uid>`, and reads the plist directories listed under [Configuration](#configuration). A service listed by one of those `print` calls is loaded; one with PID `-` or `0` is not running. The same output's `disabled services` block gives each label's disabled flag. The state shown everywhere is: running (has a PID), failed (loaded, last exit code non-zero), idle (loaded otherwise), disabled (not loaded, flag set), not loaded.
 - **Start time and uptime.** launchd doesn't report when a process started. lctl asks the kernel for the PID's start time (`sysctl` `kern.proc.pid.<pid>`, which `ps` also reads); this works for root daemons without root and runs no extra program. Services that aren't running have none: launchd doesn't record when past runs started or ended.
 - **Error hints.** When a launchctl call fails, lctl adds a `hint:` line based on launchd's message: `Could not find service` (113) → `lctl start`; `Input/output error` (5, launchd's catch-all for a refused load) → `lctl reload` if it is already loaded, otherwise `lctl doctor` (for the `user` domain, also a note that agents for your login session belong in `gui`; a disabled service is caught before launchctl runs); `Operation already in progress` (37) → `lctl reload`; `Service is disabled` (119) → `lctl enable`; `Path had bad ownership/permissions` (122) → `lctl doctor`; `Invalid signal` (64) → signal names to use; SIP (150) → can't be changed; `Operation not permitted` (1) or the "re-run as root" message with no more specific error → needs root.
-- **Name resolution.** `<name>` is a case-insensitive substring of the label (`-e` for an exact match). If several services match, lctl shows a picker (`-y` picks the first alphabetically).
+- **Name resolution.** `<name>` is a case-insensitive substring of the label (`-e` for an exact match). If several services match, lctl shows a picker (`-y` picks the first alphabetically; without a terminal, lctl stops and lists the options).
+- **Several services (`-A`).** With `-A`, the command acts on every service `lctl list <name>` shows (by default those with a plist on disk that aren't Apple's), in label order, running the same steps as for one service. Commands that change something first list the services and ask once (default no; `-y` skips; without a terminal, `-y` is required). A failure is printed and the other services still run; the command then fails with "N of M services failed". `doctor -A` reports like `doctor` without a name: only services with problems, then a count.
 - **Domain resolution.** A service's domain is, in order of precedence: the domain where launchd currently has it loaded; the plist's `LimitLoadToSessionType` (`Aqua` → `gui`, `Background`/`LoginWindow` → `user`, `System` → `system`); the domain of the directory the plist was found in.
-- **sudo.** lctl runs launchctl as you first. It retries as root only if launchctl's output contains `Try re-running the command as root`, or `Operation not permitted` without `System Integrity Protection` (sudo can't override SIP). With stdin on a terminal, lctl runs `/usr/bin/sudo -v`, which prompts the way sudo is configured (password, or Touch ID via `pam_tid`). It then reruns the command as `/usr/bin/sudo -n /bin/launchctl …`. Without a terminal there is no prompt and launchctl's error is reported as is. `install --domain system` and a cancelled prompt fail with "Sudo is required". lctl never reads or stores your password. launchctl prints the "re-running as root" hint on many failed `bootstrap` calls (for example, a disabled service), so such a failure can bring up a sudo prompt and then fail again with a more detailed error.
+- **sudo.** lctl runs launchctl as you first. It retries as root only if launchctl's output contains `Try re-running the command as root`, or `Operation not permitted` without `System Integrity Protection` (sudo can't override SIP). With stdin on a terminal, lctl runs `/usr/bin/sudo -v`, which prompts the way sudo is configured (password, or Touch ID via `pam_tid`). It then reruns the command as `/usr/bin/sudo -n /bin/launchctl …`. If the prompt is declined, lctl doesn't ask again during the same run (for example for the other services of `-A`). Without a terminal there is no prompt and launchctl's error is reported as is. `install --domain system` and a cancelled prompt fail with "Sudo is required". lctl never reads or stores your password. launchctl prints the "re-running as root" hint on many failed `bootstrap` calls (for example, a disabled service), so such a failure can bring up a sudo prompt and then fail again with a more detailed error.
 - **Running lctl under `sudo`** also works: it uses `SUDO_UID` to find your home and `gui/<uid>`.
 
 <!-- lctl explain: end -->

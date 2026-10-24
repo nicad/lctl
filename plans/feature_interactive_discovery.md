@@ -38,7 +38,7 @@ Notes:
 - **`logs -f` and `-n <lines>`**: follow the stdout/stderr files (`tail -F` behaviour) together with `log stream --predicate 'process == "<program>"'`. `-n` replaces the fixed 50 lines.
 - **`--json`** for `list`, `status` and `doctor`. Sketch: `{label, domain, state, pid, last_exit_code, disabled, plist, runs_when, program, arguments, checks: [{severity, message, fix}]}`.
 - **Create a plist from flags**: `lctl install <label> --program … [--program …] --every 5m | --at 02:00 | --calendar day=1,hour=12 --env K=V --log-dir DIR --keep-alive --run-at-load --watch PATH --queue-dir DIR --start-on-mount`, as launchy does. Write the plist to `~/Library/Application Support/lctl/<domain>/<label>.plist`, install it with the existing symlink flow, and run doctor on the result.
-- **Bulk operations** (`--prefix`, `--grep` on start/stop/enable/disable/uninstall with a count + confirmation): low value for discovery. Skip unless a need shows up.
+- **Bulk operations**: done as `-A/--all` (every service `lctl list <name>` shows, one confirmation). Not done: several names in one command (`lctl restart a b c`), an "all N matches" entry in the picker, and `-A` for `uninstall`.
 
 ## Other follow-ups
 

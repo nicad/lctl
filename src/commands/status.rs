@@ -16,8 +16,16 @@ pub(crate) fn run(lctl: &Lctl, args: &StatusArgs) -> Result<()> {
     let Some(name) = &args.target.name else {
         return super::list::run(lctl, &ListArgs { long: args.long, ..Default::default() });
     };
-    let daemon = super::resolve_daemon(lctl, name, args.target.exact)?;
+    let daemons = super::resolve_daemons(lctl, name, args.target.exact, args.target.all)?;
+    super::for_each_daemon(&daemons, |daemon| {
+        if !std::ptr::eq(daemon, daemons[0]) {
+            stdout::writeln("");
+        }
+        show(daemon, args.debug)
+    })
+}
 
+fn show(daemon: &Daemon, debug: bool) -> Result<()> {
     let output = super::print_if_loaded(daemon)?;
     let parsed =
         output.as_ref().and_then(|output| parser::parse_launchctl_service(output, daemon).ok());
@@ -25,7 +33,7 @@ pub(crate) fn run(lctl: &Lctl, args: &StatusArgs) -> Result<()> {
     let checks = doctor::check(daemon, parsed.as_ref());
     print_summary(daemon, parsed.as_ref(), &checks);
 
-    if args.debug {
+    if debug {
         match (&output, &parsed) {
             (Some(output), Some(parsed)) => print_all_fields(output, parsed),
             _ => stdout::writeln("\nNot loaded: launchd has no fields to show."),
