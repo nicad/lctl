@@ -378,6 +378,11 @@ impl TempServiceBuilder {
         self
     }
 
+    pub fn exits_kept_alive(mut self) -> Self {
+        self.program = ProgramKind::ExitsKeptAlive;
+        self
+    }
+
     pub fn run_at_load(mut self) -> Self {
         self.run_at_load = true;
         self

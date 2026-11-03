@@ -129,6 +129,11 @@ Restart a service
 .Pq Cm launchctl kickstart -k .
 If it is not loaded, behave like
 .Cm start .
+If launchd is throttling it, use
+.Cm reload ,
+which runs it right away;
+.Cm launchctl kickstart -k
+leaves it throttled.
 .Pp
 .Nm
 .Cm restart
@@ -176,7 +181,8 @@ Default:
 .Ar TERM .
 .El
 .Ss status
-Show one service on one screen: state, domain, enabled or disabled, PID,
+Show one service on one screen: state (marked throttled when launchd is
+holding back a restart), domain, enabled or disabled, PID,
 when the process started and its uptime, the command it runs, when it runs,
 log files, plist path, problems found by the checks of
 .Cm doctor ,
@@ -232,7 +238,8 @@ Default:
 .El
 .Ss list
 List services with their state (running, idle, failed, not loaded,
-disabled), PID, when the process started (the time if today, else the date)
+disabled; marked throttled when launchd is holding back a restart), PID,
+when the process started (the time if today, else the date)
 and its uptime, when they run, and label.
 By default: services with a plist on disk that are not Apple's, in any state.
 Alias:
@@ -249,6 +256,7 @@ Alias:
 .Op Fl \-not-loaded
 .Op Fl \-disabled
 .Op Fl l | Fl \-long
+.Op Fl A | Fl \-all
 .Op Fl 1 | Fl \-labels
 .Op Fl s | Fl \-sort Ar field
 .Op Ar pattern
@@ -261,6 +269,17 @@ Include services without a plist on disk.
 Only services in these states; can be combined.
 .It Fl l , Fl \-long
 Also show the domain and plist path columns.
+.It Fl A , Fl \-all
+Show exactly the services another command with
+.Fl A
+acts on, so that
+.Nm
+.Cm list Fl A Ar pattern
+can be tried first.
+Cannot be combined with
+.Fl a ,
+.Fl d
+or the state filters.
 .It Fl 1 , Fl \-labels
 Print labels only, one per line.
 .It Fl s , Fl \-sort Ar field

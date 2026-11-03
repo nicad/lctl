@@ -136,6 +136,19 @@ fn plist_edited_since_load_warns_with_reload_fix() {
 }
 
 #[test]
+fn throttled_service_warns_with_reload_fix() {
+    let dir = TempDir::new().unwrap();
+    let mut daemon = daemon_on_disk(plist(&["/bin/sleep"]), &dir);
+    daemon.loaded = true;
+
+    let print = format!("gui/501/{LABEL} = {{\n\tstate = spawn scheduled\n}}\n");
+    let checks = check(&daemon, Some(&parse_print_service(&print).unwrap()));
+    let throttled = find(&checks, "throttled");
+    assert_eq!(throttled.severity, Severity::Warn);
+    assert_eq!(throttled.fix.as_deref(), Some("lctl reload com.example.doctor"));
+}
+
+#[test]
 fn state_checks_point_to_the_fix() {
     let dir = TempDir::new().unwrap();
     let mut daemon = daemon_on_disk(plist(&["/bin/sleep"]), &dir);

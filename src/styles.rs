@@ -22,16 +22,20 @@ fn state_style(state: &ServiceState) -> (&'static str, Color) {
     }
 }
 
+fn state_text(state: &ServiceState, throttled: bool) -> String {
+    if throttled { format!("{state}, throttled") } else { state.to_string() }
+}
+
 /// Colored symbol + state, for plain output lines.
-pub fn state(state: &ServiceState) -> String {
+pub fn state(state: &ServiceState, throttled: bool) -> String {
     let (symbol, color) = state_style(state);
-    format!("{} {state}", symbol.with(color))
+    format!("{} {}", symbol.with(color), state_text(state, throttled))
 }
 
 /// Same as [`state`] for a table cell (comfy-table measures width without ANSI codes).
-pub fn state_cell(state: &ServiceState) -> Cell {
+pub fn state_cell(state: &ServiceState, throttled: bool) -> Cell {
     let (symbol, color) = state_style(state);
-    Cell::new(format!("{symbol} {state}")).fg(color)
+    Cell::new(format!("{symbol} {}", state_text(state, throttled))).fg(color)
 }
 
 /// A doctor check as `✗ message  → fix`.

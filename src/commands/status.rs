@@ -46,7 +46,7 @@ fn print_summary(daemon: &Daemon, print: Option<&ParsedService>, checks: &[Check
     stdout::writeln(&format!(
         "{}  {}",
         styles::prefix(Color::Blue, &daemon.name),
-        styles::state(&daemon.state())
+        styles::state(&daemon.state(), print.is_some_and(parser::is_throttled))
     ));
     row(
         "Domain",

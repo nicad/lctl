@@ -131,6 +131,11 @@ impl Plist {
             .as_deref()
             .or_else(|| self.program_arguments.as_ref()?.first().map(String::as_str))
     }
+
+    /// launchd restarts it after it exits: `KeepAlive` is true or a set of conditions.
+    pub fn keeps_alive(&self) -> bool {
+        matches!(self.keep_alive, Some(KeepAlive::Boolean(true) | KeepAlive::Dictionary(_)))
+    }
 }
 
 #[derive(Debug, Clone)]

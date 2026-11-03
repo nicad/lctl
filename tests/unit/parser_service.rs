@@ -1,4 +1,4 @@
-use lctl::parser::{ServiceItem, parse_print_service};
+use lctl::parser::{ServiceItem, is_throttled, parse_print_service};
 
 #[test]
 fn parses_flat_service_fields() {
@@ -62,4 +62,19 @@ com.example.idle = {
     let parsed = parse_print_service(output).unwrap();
     assert_eq!(parsed.get("state"), Some(&ServiceItem::Str("not running")));
     assert!(parsed.get("pid").is_none());
+    assert!(!is_throttled(&parsed));
+}
+
+#[test]
+fn spawn_scheduled_means_throttled() {
+    // as launchd shows a KeepAlive job that keeps exiting
+    let output = "\
+gui/501/com.example.exits = {
+\tstate = spawn scheduled
+\truns = 3
+\tlast exit code = 1
+\tspawn type = daemon (3)
+}
+";
+    assert!(is_throttled(&parse_print_service(output).unwrap()));
 }

@@ -32,6 +32,15 @@ fn runs_when_lists_load_and_keep_alive() {
 }
 
 #[test]
+fn keeps_alive_when_keep_alive_is_true_or_conditional() {
+    let with = |keep_alive| Plist { keep_alive, ..Default::default() };
+    assert!(with(Some(KeepAlive::Boolean(true))).keeps_alive());
+    assert!(with(Some(KeepAlive::Dictionary(Default::default()))).keeps_alive());
+    assert!(!with(Some(KeepAlive::Boolean(false))).keeps_alive());
+    assert!(!with(None).keeps_alive());
+}
+
+#[test]
 fn runs_when_formats_intervals() {
     let every = |seconds| when(Plist { start_interval: Some(seconds), ..Default::default() });
     assert_eq!(every(300), "every 5m");

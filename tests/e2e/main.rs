@@ -19,4 +19,5 @@ mod start;
 mod status;
 mod stop;
 mod sudo_interactive;
+mod throttle;
 mod uninstall;

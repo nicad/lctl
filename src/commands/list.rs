@@ -4,9 +4,10 @@ use crate::error::Result;
 use crate::lctl::Lctl;
 use crate::output;
 use crate::output::stdout;
+use crate::parser;
 use crate::process;
 use crate::styles;
-use crate::types::{Daemon, ForWhom, ServiceState};
+use crate::types::{Daemon, ForWhom, Plist, ServiceState};
 use comfy_table::Cell;
 use std::time::SystemTime;
 
@@ -27,10 +28,13 @@ pub(crate) fn run(lctl: &Lctl, args: &ListArgs) -> Result<()> {
         header.extend(["Domain", "Plist"]);
     }
     table.set_header(header);
+    let mut throttled_count = 0;
     for daemon in &daemons {
+        let throttled = launchd_throttles(daemon);
+        throttled_count += usize::from(throttled);
         let start = daemon.pid.and_then(process::start_time);
         let mut row: Vec<Cell> = vec![
-            styles::state_cell(&daemon.state()),
+            styles::state_cell(&daemon.state(), throttled),
             daemon.pid.map_or("-".to_string(), |pid| pid.to_string()).into(),
             start.map(|start| describe::started(start, now)).unwrap_or_default().into(),
             start.map(|start| describe::uptime(start, now, 1)).unwrap_or_default().into(),
@@ -44,8 +48,22 @@ pub(crate) fn run(lctl: &Lctl, args: &ListArgs) -> Result<()> {
         table.add_row(row);
     }
     stdout::writeln(&table);
-    stdout::writeln(&summary(&daemons));
+    stdout::writeln(&summary(&daemons, throttled_count));
     Ok(())
+}
+
+/// [`parser::is_throttled`]. The domain listing doesn't say, so this asks launchd, but only about
+/// services it could be restarting: loaded, without a process, exited at least once, KeepAlive.
+fn launchd_throttles(daemon: &Daemon) -> bool {
+    let candidate = daemon.pid.is_none()
+        && daemon.last_exit_code.as_deref() != Some("-")
+        && daemon.plist.as_ref().is_some_and(Plist::keeps_alive);
+    if !candidate {
+        return false;
+    }
+    // for display only: when launchd can't be asked, the state is shown without it
+    let Ok(Some(output)) = super::print_if_loaded(daemon) else { return false };
+    parser::parse_launchctl_service(&output, daemon).as_ref().is_ok_and(parser::is_throttled)
 }
 
 /// The services `list` shows for `args`, sorted. By default: with a plist on disk, not Apple's.
@@ -79,8 +97,8 @@ fn is_listed(daemon: &Daemon, args: &ListArgs) -> bool {
     }
 }
 
-/// e.g. "7 services: 4 running, 1 failed, 2 not loaded · lctl status <name> for details"
-fn summary(daemons: &[&Daemon]) -> String {
+/// e.g. "7 services: 4 running, 1 failed, 2 not loaded · 1 throttled · lctl status <name> for details"
+fn summary(daemons: &[&Daemon], throttled: usize) -> String {
     let breakdown: Vec<String> = ServiceState::NAMES
         .iter()
         .filter_map(|name| {
@@ -90,10 +108,11 @@ fn summary(daemons: &[&Daemon]) -> String {
         .collect();
     let services = if daemons.len() == 1 { "service" } else { "services" };
     styles::command(&format!(
-        "{} {services}{}{} · lctl status <name> for details · lctl doctor checks for problems",
+        "{} {services}{}{}{} · lctl status <name> for details · lctl doctor checks for problems",
         daemons.len(),
         if breakdown.is_empty() { "" } else { ": " },
         breakdown.join(", "),
+        if throttled > 0 { format!(" · {throttled} throttled") } else { String::new() },
     ))
 }
 

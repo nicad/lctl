@@ -19,6 +19,12 @@ pub fn parse_launchctl_service<'a>(
     parse_print_service(output)
 }
 
+/// launchd is holding back a restart (`state = spawn scheduled`): the service exited or crashed
+/// soon after starting, and KeepAlive restarts it only after ThrottleInterval (10s by default).
+pub fn is_throttled(parsed: &ParsedService) -> bool {
+    str_field(parsed, "state") == Some("spawn scheduled")
+}
+
 /// A string field of a parsed `launchctl print`.
 pub fn str_field<'a>(parsed: &ParsedService<'a>, key: &str) -> Option<&'a str> {
     match parsed.get(key) {

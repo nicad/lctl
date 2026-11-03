@@ -112,6 +112,13 @@ pub struct ListArgs {
     /// Also show the Domain and Plist columns
     #[arg(short, long)]
     pub long: bool,
+    /// Exactly the services another command's -A acts on: try `ls -A NAME`, then swap `ls`
+    #[arg(
+        short = 'A',
+        long,
+        conflicts_with_all = ["show_apple", "show_dynamic", "running", "idle", "failed", "not_loaded", "disabled"]
+    )]
+    pub all: bool,
     /// Print labels only, one per line
     #[arg(short = '1', long = "labels")]
     pub labels_only: bool,
@@ -172,7 +179,7 @@ pub enum Commands {
     Start(MultiNameArgs),
     /// Stop and unload a service (it stays stopped until next login/boot)
     Stop(MultiNameArgs),
-    /// Restart a service (loads it first if needed)
+    /// Restart a service (loads it first if needed); use reload if launchd is throttling it
     Restart(MultiNameArgs),
     /// Unload and load again, picking up plist edits and symlink target changes
     Reload(MultiNameArgs),

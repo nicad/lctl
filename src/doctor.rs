@@ -71,6 +71,12 @@ pub fn check(daemon: &Daemon, print: Option<&ParsedService>) -> Vec<Check> {
         return vec![Check::fail("no Label: launchd ignores this file", None)];
     }
     let mut checks = vec![check_state(daemon)];
+    if print.is_some_and(parser::is_throttled) {
+        checks.push(Check::warn(
+            "throttled: it exited soon after starting, so launchd waits before each restart",
+            daemon.source_path.as_ref().map(|_| format!("lctl reload {}", daemon.name)),
+        ));
+    }
     let (Some(plist), Some(path)) = (&daemon.plist, &daemon.source_path) else {
         checks.push(check_missing_plist(daemon, print));
         return checks;

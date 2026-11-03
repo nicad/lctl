@@ -17,6 +17,8 @@ pub enum ProgramKind {
     EchoThenSleep,
     /// A program path that doesn't exist (for doctor tests)
     Missing,
+    /// `/usr/bin/false` with KeepAlive: launchd keeps restarting it and throttles the restarts
+    ExitsKeptAlive,
 }
 
 pub struct PlistSpec<'a> {
@@ -59,6 +61,11 @@ fn render_plist(spec: &PlistSpec<'_>) -> String {
         ),
         ProgramKind::Missing => (
             "\t<key>Program</key>\n\t<string>/nonexistent/lctl-e2e-missing</string>\n".to_string(),
+            String::new(),
+        ),
+        ProgramKind::ExitsKeptAlive => (
+            "\t<key>Program</key>\n\t<string>/usr/bin/false</string>\n\t<key>KeepAlive</key>\n\t<true/>\n"
+                .to_string(),
             String::new(),
         ),
         ProgramKind::EchoThenSleep => (
